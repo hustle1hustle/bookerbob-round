@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bookerbob: the community round</title>
+<style>
+  :root { --bg: #0A0A0F; --panel: #111118; --line: #23232e; --fg: #E8E8EE; --dim: #8b8b99; --blue: #3B5BFF; --blue-soft: rgba(59,91,255,.12); --green: #5BE3A0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 -apple-system, "Inter", "Segoe UI", sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 40px 16px 80px; }
+  nav { font: 13px ui-monospace, Menlo, monospace; color: var(--dim); display: flex; gap: 18px; flex-wrap: wrap; }
+  nav b { color: var(--fg); } a { color: var(--dim); }
+  h1 { font-size: clamp(30px, 6vw, 48px); line-height: 1.08; letter-spacing: -.02em; margin: 28px 0 14px; }
+  p { max-width: 680px; margin: 0 0 12px; }
+  .small { font: 13px/1.6 ui-monospace, Menlo, monospace; color: var(--dim); }
+  .status { margin: 26px 0 10px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); font: 14px ui-monospace, Menlo, monospace; }
+  .status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); margin-right: 8px; }
+  .status .dot.off { background: var(--dim); }
+  table { width: 100%; border-collapse: collapse; font: 14px ui-monospace, Menlo, monospace; margin-top: 8px; }
+  td, th { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+  th { color: var(--dim); font-weight: 400; font-size: 12px; }
+  td.p { text-align: right; white-space: nowrap; } tr.win td { background: var(--blue-soft); }
+  .sealed { color: var(--dim); }
+  pre { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; overflow-x: auto; font: 13px/1.6 ui-monospace, Menlo, monospace; }
+  .play { margin: 22px 0 8px; padding: 18px 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+  .play h2 { margin: 0 0 10px; }
+  label { display: block; font: 12px ui-monospace, Menlo, monospace; color: var(--dim); margin: 12px 0 4px; }
+  input { width: 100%; max-width: 340px; padding: 12px; font: 17px ui-monospace, Menlo, monospace; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
+  input:focus { outline: 2px solid var(--blue); border-color: var(--blue); }
+  input[type=range] { padding: 0; border: 0; background: none; }
+  input[type=range].untouched { opacity: 0.35; }
+  button { margin-top: 14px; padding: 13px 20px; font: 600 16px -apple-system, "Inter", sans-serif; color: #fff; background: var(--blue); border: 0; border-radius: 6px; cursor: pointer; }
+  button.ghost { background: none; border: 1px solid var(--line); color: var(--dim); font-weight: 400; font-size: 13px; padding: 8px 12px; }
+  button:disabled { opacity: .45; cursor: default; }
+  #steps { list-style: none; padding: 0; margin: 14px 0 0; font: 13px/1.7 ui-monospace, Menlo, monospace; }
+  #steps li.ok::before { content: "ok  "; color: var(--green); } #steps li.run::before { content: "..  "; color: var(--dim); } #steps li.bad::before { content: "no  "; color: #ff6b6b; }
+  #steps a { color: var(--dim); }
+  .mine { margin-top: 12px; font: 14px/1.6 ui-monospace, Menlo, monospace; }
+  .warn { color: #ffb86b; }
+  [hidden] { display: none !important; }
+  h2 { font-size: 22px; margin: 40px 0 10px; letter-spacing: -.01em; }
+</style>
+</head>
+<body>
+<main>
+<nav><b>bookerbob</b><span>built at NEAR HACKATHON</span><a href="https://github.com/hustle1hustle/bookerbob-round">how it works</a></nav>
+<h1>bid blind against our merchant agents.</h1>
+<p>anyone can be a merchant in this round, on their own NEAR testnet account and their own key. you pick one price. until the deadline only its hash is on chain, so nobody can read it, us included. after the deadline everyone reveals and the lowest price wins the round's buyer.</p>
+<p class="small">testnet only. dUSDC is a test token with no value. nothing here can take or pay real money. a bid that is never revealed costs 5 dUSDC of the 10 dUSDC bond.</p>
+
+<section class="play" id="play">
+  <h2 id="play-title">place your sealed bid</h2>
+  <div id="form">
+    <p class="small">no wallet, no install, no signup. this page makes you a throwaway NEAR testnet account and keeps its key in this browser only. use the same browser to come back and reveal.</p>
+    <label for="name">a name for your account (a-z, 0-9, -)</label>
+    <input id="name" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="32">
+    <label for="price">your price in dUSDC: you choose it, nothing is filled in for you</label>
+    <input id="slider" type="range" min="1" max="100" step="0.25" value="50" class="untouched" aria-label="price slider">
+    <input id="price" inputmode="decimal" autocomplete="off" placeholder="pick a price">
+    <label for="instr">an instruction to your agent (optional, one line; only its hash goes on chain)</label>
+    <input id="instr" autocomplete="off" maxlength="140" placeholder="e.g. undercut the cheapest, but never below 25">
+    <br><button id="bid" disabled>seal my bid</button>
+    <p class="small" id="choice">move the slider or type a price to continue</p>
+  </div>
+  <div class="mine" id="mine" hidden></div>
+  <button id="reveal" hidden>reveal my bid</button>
+  <ul id="steps"></ul>
+  <p class="small warn" id="note" hidden></p>
+  <p><button class="ghost" id="export" hidden>show my throwaway testnet key</button></p>
+  <pre id="keybox" hidden></pre>
+</section>
+
+<div class="status" id="status"><span class="dot off"></span>reading the round over public RPC</div>
+<table id="bids"><thead><tr><th>merchant account</th><th>who</th><th class="p">price</th></tr></thead><tbody></tbody></table>
+<p class="small" id="foot"></p>
+
+<p class="small">how it works, and what it is not: <a href="https://github.com/hustle1hustle/bookerbob-round">the guide</a>. the contract: <a id="acct" href="https://testnet.nearblocks.io/address/bookerbob.testnet">bookerbob.testnet</a>.</p>
+</main>
+<script type="module">
+import * as tx from "./round-tx.js";
+const RPCS = ["https://test.rpc.fastnear.com", "https://rpc.testnet.near.org"];
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+async function view(account, method, args) {
+  let err;
+  for (const rpc of RPCS) {
+    try {
+      const r = await (await fetch(rpc, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "query", params: { request_type: "call_function", finality: "final", account_id: account, method_name: method, args_base64: btoa(JSON.stringify(args)) } }) })).json();
+      if (r.result?.result) return JSON.parse(new TextDecoder().decode(new Uint8Array(r.result.result)));
+      err = new Error(r.result?.error ?? JSON.stringify(r.error ?? r).slice(0, 120));
+    } catch (e) { err = e; }
+  }
+  throw err;
+}
+const when = (ms) => new Date(ms).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + " your time";
+const left = (ms) => { const m = Math.max(0, Math.round((ms - Date.now()) / 60000)); return m >= 120 ? Math.round(m / 60) + " h" : m + " min"; };
+async function draw() {
+  const st = document.getElementById("status"), body = document.querySelector("#bids tbody"), foot = document.getElementById("foot");
+  try {
+    const cfg = await (await fetch("community.json", { cache: "no-store" })).json();
+    const round = new URLSearchParams(location.search).get("round") ?? cfg.round;
+    const ours = cfg.ours ?? {};
+    if (!round) { st.innerHTML = '<span class="dot off"></span>no round is open right now. the next one is announced with its deadlines.'; return; }
+    const r = await view(cfg.bazaar, "round", { round_id: round });
+    if (!r) throw new Error("round " + round + " is not on " + cfg.bazaar);
+    const now = Date.now();
+    const phase = now < r.commit_until_ms ? "bids open for " + left(r.commit_until_ms) + " more, until " + when(r.commit_until_ms)
+      : now < r.reveal_until_ms ? "bids closed. reveals open for " + left(r.reveal_until_ms) + " more, until " + when(r.reveal_until_ms) : "closed " + when(r.reveal_until_ms);
+    st.innerHTML = '<span class="dot' + (now < r.reveal_until_ms ? "" : " off") + '"></span>round ' + esc(round) + " on " + esc(cfg.bazaar) + ": " + phase + ". " + r.commits.length + " sealed bids, " + r.revealed.length + " revealed. read live from the chain.";
+    const rows = [];
+    for (const [who, hash] of r.commits) {
+      let price = null;
+      if (r.revealed.includes(who)) price = Number((await view(cfg.bazaar, "round_bid", { round_id: round, merchant: who })).base_price) / 1e6;
+      rows.push({ who, hash, price });
+    }
+    rows.sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
+    const closed = now >= r.reveal_until_ms;
+    body.innerHTML = rows.map((x, i) => '<tr class="' + (closed && i === 0 && x.price !== null ? "win" : "") + '"><td><a href="https://testnet.nearblocks.io/address/' + esc(x.who) + '">' + esc(x.who) + "</a></td><td>" + esc(ours[x.who] ?? "community, own key") + '</td><td class="p">' + (x.price === null ? '<span class="sealed">' + (closed ? "never revealed" : "sealed " + esc(x.hash.slice(0, 10)) + "..") + "</span>" : x.price.toFixed(2)) + "</td></tr>").join("") || '<tr><td colspan="3" class="sealed">no bids yet</td></tr>';
+    foot.textContent = closed ? (rows[0]?.price != null ? "lowest revealed price wins: " + rows[0].who + " at " + rows[0].price.toFixed(2) + "." : "no bid was revealed.") : "prices appear here as each bidder reveals. accounts marked ours are our own merchant agents; every other account holds its own key.";
+  } catch (e) { st.innerHTML = '<span class="dot off"></span>could not read the round: ' + esc(e.message); }
+}
+// ---- bid and reveal from this page ----
+const FAUCET = "https://helper.nearprotocol.com/account";
+const KEY = "bookerbob-community-v1";
+const $ = (id) => document.getElementById(id);
+const store = { get() { try { return JSON.parse(localStorage.getItem(KEY) ?? "null"); } catch { return null; } }, set(v) { try { localStorage.setItem(KEY, JSON.stringify(v)); return true; } catch { return false; } } };
+const link = (h) => '<a href="https://testnet.nearblocks.io/txns/' + esc(h) + '">' + esc(h.slice(0, 8)) + "..</a>";
+function step(text) { const li = document.createElement("li"); li.className = "run"; li.textContent = text; $("steps").appendChild(li); return { ok(h) { li.className = "ok"; if (h) li.innerHTML = esc(text) + "  " + link(h); }, bad(e) { li.className = "bad"; li.textContent = text + ": " + e; } }; }
+async function sent(text, p) { const s = step(text); const r = await p; if (!r.ok) { s.bad(r.error); throw new Error(text + " failed"); } s.ok(r.hash); return r.hash; }
+let cfg = null, round = null;
+async function roundNow() { cfg = await (await fetch("community.json", { cache: "no-store" })).json(); const id = new URLSearchParams(location.search).get("round") ?? cfg.round; round = id ? { id, ...(await tx.view(cfg.bazaar, "round", { round_id: id })) } : null; return round; }
+function words() { const a = ["quiet", "brisk", "amber", "lucky", "polar", "mellow", "rapid", "sly"], b = ["otter", "heron", "lynx", "finch", "marten", "tern", "ibex", "wren"]; const r = crypto.getRandomValues(new Uint8Array(3)); return a[r[0] % 8] + "-" + b[r[1] % 8] + "-" + (r[2] % 90 + 10); }
+async function paint() {
+  const st = store.get();
+  let r; try { r = await roundNow(); } catch { r = null; }
+  const mine = st && r && st.round === r.id ? st : null;
+  const now = Date.now();
+  $("export").hidden = !st;
+  if (!r) { $("form").hidden = true; $("play-title").textContent = "no round is open right now"; return; }
+  if (!mine) {
+    const open = now < r.commit_until_ms;
+    $("form").hidden = !open; $("play-title").textContent = open ? "place your sealed bid" : "bids are closed for this round";
+    if (!$("name").value) $("name").value = st?.account ? st.account.replace(/\.testnet$/, "") : words();
+    if (st?.account) $("name").disabled = true;
+    return;
+  }
+  $("form").hidden = true; $("mine").hidden = false;
+  const revealed = r.revealed.includes(mine.account);
+  const committed = r.commits.some(([w]) => w === mine.account);
+  $("play-title").textContent = revealed ? "your bid is revealed" : committed ? "your bid is sealed" : "finish your bid";
+  $("mine").innerHTML = "account " + esc(mine.account) + "<br>your price " + esc(mine.price) + (revealed ? ", public now" : ", known only to this browser") + (mine.instruction_hash ? "<br>your instruction's hash " + esc(mine.instruction_hash) + (revealed ? ", on chain in your reveal" : ", goes on chain with your reveal") : "") +
+    (revealed ? "" : committed ? (now < r.commit_until_ms ? "<br>come back to this page between " + when(r.commit_until_ms) + " and " + when(r.reveal_until_ms) + " and press reveal." : now < r.reveal_until_ms ? "<br>reveals are open until " + when(r.reveal_until_ms) + "." : "<br>reveals closed. this bid was never opened: the bond can lose 1 dUSDC.") : "");
+  $("reveal").hidden = !(committed && !revealed && now >= r.commit_until_ms && now < r.reveal_until_ms);
+  if (!committed && now < r.commit_until_ms) { $("form").hidden = false; $("name").value = mine.account.replace(/\.testnet$/, ""); $("name").disabled = true; $("price").value = mine.price; choose(mine.price); }
+}
+const hexOf = (u8) => Array.from(u8, (x) => x.toString(16).padStart(2, "0")).join("");
+let chosen = false;
+const choose = (v) => { chosen = Number(v) > 0; $("bid").disabled = !chosen; $("choice").textContent = chosen ? "your price: " + Number(v).toFixed(2) + " dUSDC" : "move the slider or type a price to continue"; };
+$("slider").oninput = () => { $("slider").classList.remove("untouched"); $("price").value = Number($("slider").value).toFixed(2); choose($("price").value); };
+$("price").oninput = () => { const v = Number($("price").value); if (v >= 1 && v <= 100) $("slider").value = v; $("slider").classList.remove("untouched"); choose(v); };
+$("bid").onclick = async () => {
+  const btn = $("bid"); btn.disabled = true; $("steps").innerHTML = ""; $("note").hidden = true;
+  try {
+    const r = await roundNow();
+    if (!r || Date.now() >= r.commit_until_ms) throw new Error("bids are closed");
+    const name = $("name").value.trim().toLowerCase();
+    if (!/^[a-z0-9][a-z0-9-]{3,30}[a-z0-9]$/.test(name)) throw new Error("name: 5 to 32 of a-z 0-9 -, like quiet-otter-7");
+    if (!chosen) throw new Error("choose your price first");
+    const schedule = tx.flatSchedule($("price").value.trim());
+    let st = store.get();
+    if (!st) {
+      const id = name + ".testnet";
+      if (await tx.accountExists(id)) throw new Error(id + " is taken on testnet, pick another name");
+      const seed = tx.randomHex();
+      st = { account: id, seed, pub: await tx.publicKeyHex(seed), txs: {} };
+      if (!store.set(st)) throw new Error("this browser blocks page storage (private mode?). open the page in a normal tab");
+      const s = step("a fresh testnet account " + id + " from the public faucet");
+      const f = await fetch(FAUCET, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ newAccountId: id, newAccountPublicKey: tx.nearPublicKey(st.pub) }) });
+      if (!f.ok) { localStorage.removeItem(KEY); s.bad("the faucet answered " + f.status + ". try again in a minute"); throw new Error("faucet"); }
+      for (let i = 0; i < 20 && !(await tx.accountExists(id)); i++) await new Promise((ok) => setTimeout(ok, 1500));
+      s.ok();
+    }
+    const me = (receiver_id, actions) => tx.send({ signer_id: st.account, seedHex: st.seed, pubHex: st.pub, receiver_id, actions });
+    const dusdc = cfg.dusdc ?? "bookerbob-dusdc.testnet";
+    if (!(await tx.view(dusdc, "storage_balance_of", { account_id: st.account }))) st.txs.storage = await sent("register for the test token", me(dusdc, [tx.call("storage_deposit", {}, 1250n * 10n ** 18n, 30n)]));
+    const m0 = await tx.view(cfg.bazaar, "merchant", { merchant: st.account });
+    if (!m0?.approved && BigInt(await tx.view(dusdc, "ft_balance_of", { account_id: st.account })) < 10000000n) st.txs.mint = await sent("mint 100 dUSDC (a test token, no value)", me(dusdc, [tx.call("mint", {}, 0n, 30n)]));
+    if (!m0) st.txs.register = await sent("register as a merchant, category open", me(cfg.bazaar, [tx.call("register_merchant", { schedule: tx.flatSchedule(10000), category: "open", payout: null }, 20n * 10n ** 21n, 30n)]));
+    if (!m0?.approved) st.txs.bond = await sent("bond 10 dUSDC: approved by the bond, nobody lets you in", me(dusdc, [tx.call("ft_transfer_call", { receiver_id: cfg.bazaar, amount: "10000000", msg: "bond" }, 1n, 100n)]));
+    // The salt's first 16 bytes are sha256(your instruction), its last 16 random. It goes on chain
+    // with your reveal, so the instruction you gave your agent is fixed with the bid; only you can
+    // show what it said.
+    const instr = $("instr").value.trim();
+    const ih = hexOf(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(instr)))).slice(0, 32);
+    st.instruction_hash = instr ? ih : null;
+    st.round = r.id; st.price = $("price").value.trim(); st.schedule = schedule; st.salt = st.round_salt?.[r.id] ?? ((instr ? ih : "0".repeat(32)) + tx.randomHex(16));
+    st.round_salt = { ...(st.round_salt ?? {}), [r.id]: st.salt };
+    store.set(st);
+    st.txs.commit = await sent("sealed bid: only a hash goes on chain", me(cfg.bazaar, [tx.call("commit_bid", { round_id: r.id, commitment: await tx.bidCommitment(st.account, schedule, st.salt) }, 20n * 10n ** 21n, 30n)]));
+    store.set(st);
+  } catch (e) { $("note").hidden = false; $("note").textContent = e.message; }
+  btn.disabled = false; await paint(); draw();
+};
+$("reveal").onclick = async () => {
+  const btn = $("reveal"); btn.disabled = true; $("steps").innerHTML = ""; $("note").hidden = true;
+  try {
+    const st = store.get(); const r = await roundNow();
+    st.txs.reveal = await sent("reveal: the contract checks your price against your hash", tx.send({ signer_id: st.account, seedHex: st.seed, pubHex: st.pub, receiver_id: cfg.bazaar, actions: [tx.call("reveal_bid", { round_id: r.id, schedule: st.schedule, salt: st.salt }, 20n * 10n ** 21n, 50n)] }));
+    store.set(st);
+  } catch (e) { $("note").hidden = false; $("note").textContent = e.message; }
+  btn.disabled = false; await paint(); draw();
+};
+$("export").onclick = () => { const st = store.get(); const box = $("keybox"); box.hidden = !box.hidden; box.textContent = "a throwaway NEAR testnet key. it holds test tokens only.\n" + JSON.stringify({ account_id: st.account, public_key: tx.nearPublicKey(st.pub), private_key: tx.nearSecretKey(st.seed, st.pub) }, null, 2); };
+paint(); setInterval(paint, 30000);
+draw(); setInterval(draw, 30000);
+</script>
+</body>
+</html>
