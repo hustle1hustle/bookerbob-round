@@ -119,8 +119,8 @@
 <section class="play" id="play">
   <h2 id="play-title">seal up to 4 bids</h2>
   <div id="form">
-    <label for="name">account name</label>
-    <input id="name" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="32">
+    <label for="name">account name: type your own, or leave it empty for the grey one</label>
+    <input id="name" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="32">
     <div id="rows"></div>
     <button id="bid" class="wide" disabled>seal my bids</button>
     <p class="small" id="choice">set a price in at least one open round</p>
@@ -227,13 +227,17 @@ setInterval(() => {
 }, 1000);
 
 // ---- the form: one row per round ----
+const suggested = words();
+let paintSeq = 0;
 async function paintForm() {
   const st = migrate(store.get());
-  if (!$("name").value) $("name").value = st?.account ? st.account.replace(/\.testnet$/, "") : words();
-  const acct = st?.account ?? (/^[a-z0-9][a-z0-9-]{3,30}[a-z0-9]$/.test($("name").value.trim()) ? $("name").value.trim() + ".testnet" : null);
-  if (st?.account) $("name").disabled = true;
-  const keep = {};
-  for (const el of document.querySelectorAll("#rows input")) keep[el.id] = el.value;
+  // The suggested name is only a placeholder: an emptied field stays empty, and sealing with it
+  // empty uses the suggestion (shown in the field then). Costs follow whatever name will be used.
+  const seq = ++paintSeq;
+  if (st?.account) { $("name").value = st.account.replace(/\.testnet$/, ""); $("name").disabled = true; }
+  $("name").placeholder = suggested;
+  const nm = $("name").value.trim().toLowerCase() || suggested;
+  const acct = st?.account ?? (/^[a-z0-9][a-z0-9-]{3,30}[a-z0-9]$/.test(nm) ? nm + ".testnet" : null);
   const html = [];
   for (const r of rounds) {
     const mine = st?.bids?.[r.id];
@@ -246,6 +250,9 @@ async function paintForm() {
       (committed ? '<div class="done">sealed' + (mine?.price ? " at " + esc(mine.price) : "") + (r.revealed.includes(st.account) ? ", revealed" : mine?.auto_reveal !== false ? ", opens by itself after " + esc(utc(r.commit_until_ms)) : "") + "</div>"
         : open ? '<input class="p" id="p-' + esc(r.id) + '" inputmode="decimal" autocomplete="off" placeholder="your price"><input class="i" id="i-' + esc(r.id) + '" autocomplete="off" maxlength="140" placeholder="a line for your agent (optional)">' : "") + "</div>");
   }
+  if (seq !== paintSeq) return; // a newer keystroke repainted already
+  const keep = {};
+  for (const el of document.querySelectorAll("#rows input")) keep[el.id] = el.value;
   $("rows").innerHTML = html.join("") || '<p class="small">no round is open right now.</p>';
   for (const [k, v] of Object.entries(keep)) if ($(k)) $(k).value = v;
   for (const el of document.querySelectorAll("#rows input.p")) el.oninput = choose;
@@ -305,6 +312,7 @@ $("bid").onclick = async () => {
   const btn = $("bid"); btn.disabled = true; $("steps").innerHTML = ""; $("note").hidden = true;
   try {
     await load();
+    if (!$("name").value.trim()) $("name").value = suggested;
     const name = $("name").value.trim().toLowerCase();
     if (!/^[a-z0-9][a-z0-9-]{3,30}[a-z0-9]$/.test(name)) throw new Error("name: 5 to 32 of a-z 0-9 -, like quiet-otter-7");
     let st = migrate(store.get());
