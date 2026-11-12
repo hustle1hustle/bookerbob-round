@@ -89,3 +89,25 @@ export async function send({ signer_id, seedHex, pubHex, receiver_id, actions })
   }
   return { ok: false, error: "the nonce kept colliding, try again" };
 }
+
+/** NEP-366: a reveal the bidder signs now and a relayer submits later (it pays the gas; the
+ *  deposit comes from the bidder). The same bytes as relayer/relay.mjs encodeDelegateAction and
+ *  signableHash (scripts/round-tx.test.mjs holds them equal). `actions`: [{ method_name, args,
+ *  gas, deposit }]. Returns { delegate_action, signature_hex } in relay.mjs's JSON shape. */
+export async function signDelegate({ sender_id, seedHex, pubHex, receiver_id, actions, nonce, max_block_height }) {
+  const d = {
+    sender_id, receiver_id, nonce: String(nonce), max_block_height: String(max_block_height), public_key_hex: pubHex,
+    actions: actions.map((a) => ({ type: "FunctionCall", method_name: a.method_name, args: a.args, gas: String(a.gas), deposit: String(a.deposit) })),
+  };
+  const body = cat(str(d.sender_id), str(d.receiver_id), le(d.actions.length, 4), ...d.actions.map(action), le(d.nonce, 8), le(d.max_block_height, 8), u8(0), unhex(d.public_key_hex));
+  const hash = await sha256(cat(le(2 ** 30 + 366, 4), body));
+  return { delegate_action: d, signature_hex: hex(await signAsync(hash, unhex(seedHex))) };
+}
+
+/** The bidder's access key nonce and the chain's height, for a delegate valid until `untilMs`
+ *  (blocks are at least 0.5 s apart on testnet, so the bound outlasts the time it covers). */
+export async function delegateWindow(account, pubHex, untilMs) {
+  const ak = await rpc("query", { request_type: "view_access_key", finality: "final", account_id: account, public_key: nearPublicKey(pubHex) });
+  const blocks = Math.ceil(Math.max(0, untilMs - Date.now()) / 500) + 20000;
+  return { nonce: BigInt(ak.nonce) + 1000n, max_block_height: BigInt(ak.block_height) + BigInt(blocks) };
+}

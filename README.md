@@ -12,7 +12,7 @@ The page: `https://hustle1hustle.github.io/bookerbob-round/`
 The contract: [`bookerbob.testnet`](https://testnet.nearblocks.io/address/bookerbob.testnet)
 on NEAR testnet; the round's state is read live from it, so the page shows what the chain says.
 
-## Join: one page, two visits
+## Join: one visit
 
 1. Choose your price (a slider or a number box; nothing is filled in for you) and, if you
    like, one line telling your agent how to bid. Only that line's hash is used: its first 16
@@ -22,9 +22,14 @@ on NEAR testnet; the round's state is read live from it, so the page shows what 
    mints 100 test dUSDC, posts a 10 dUSDC bond (the bond is the approval: nobody lets you in)
    and sends the sealed bid. Each step links to its transaction; the transaction carries a
    hash, not your price.
-2. Come back to the same page in the same browser between the bid deadline and the reveal
-   deadline and press "reveal my bid". The contract checks your price against your hash, so
-   nobody can change a price after seeing the others. Your price then shows in the table.
+2. That's it. Your reveal is signed in the page (a NEP-366 delegate action from your own key)
+   and locked in time with [drand](https://drand.love) (tlock, the quicknet chain) until the
+   bid deadline; the ciphertext goes on chain inside your bid. After the deadline our relayer
+   opens it and sends it, paying the gas. It cannot read your price before the deadline, and it
+   cannot change your price or salt after (both are signed by your key). The contract checks
+   your price against your hash, and your price shows in the table.
+3. If you want, come back between the bid deadline and the reveal deadline and press "reveal
+   my bid" yourself; it does the same thing.
 
 The key of the throwaway account is made in your browser and stays in that page's storage. It
 never reaches us. "show my throwaway testnet key" prints it if you want to keep it. A private
@@ -35,13 +40,14 @@ tab forgets it when closed, and then the bid cannot be opened: use a normal tab.
 - Win: your account is the round's lowest revealed price on chain. If you are named anywhere,
   it is as "a community member's account, on its own key, at its own price", and nothing more.
 - Lose: nothing. You keep the bond.
-- Bid and never reveal: anyone may mark it within 24 hours of the reveal deadline. That takes
-  5 dUSDC of your 10 dUSDC bond and bars the account from new rounds for 24 hours.
+- A bid never revealed: anyone may mark it within 24 hours of the reveal deadline, which takes
+  5 dUSDC of your 10 dUSDC bond and bars the account for 24 hours. We never mark community bids.
 
 ## Who else is in the round
 
 Our own merchant agents may bid in the same round, sealed like yours, and the table marks them
-as ours. They cannot read your price before the deadline and you cannot read theirs.
+as ours. The founder may bid from this page too, as an account named `founder-...`; the table
+marks it as the founder's bid and it is never counted as a community member. They cannot read your price before the deadline and you cannot read theirs.
 
 ## What this is not
 
@@ -52,5 +58,7 @@ price cannot be changed after the reveal.
 ## Files
 
 `index.html` (the page), `round-tx.js` (builds, signs and sends the testnet transactions in
-your browser), `vendor/noble-ed25519.js` (ed25519 signing, MIT, Paul Miller), and
-`community.json` (which round is open; empty until one is).
+your browser, and signs the time-locked reveal), `vendor/noble-ed25519.js` (ed25519 signing, MIT,
+Paul Miller), `vendor/tlock.min.js` (drand's tlock-js 0.9.0 with its dependencies, bundled
+unmodified with esbuild; MIT and Apache-2.0), and `community.json` (which round is open; empty
+until one is).

@@ -47,7 +47,8 @@
 <nav><b>bookerbob</b><span>built at NEAR HACKATHON</span><a href="https://github.com/hustle1hustle/bookerbob-round">how it works</a></nav>
 <h1>bid blind against our merchant agents.</h1>
 <p>anyone can be a merchant in this round, on their own NEAR testnet account and their own key. you pick one price. until the deadline only its hash is on chain, so nobody can read it, us included. after the deadline everyone reveals and the lowest price wins the round's buyer.</p>
-<p class="small">testnet only. dUSDC is a test token with no value. nothing here can take or pay real money. a bid that is never revealed costs 5 dUSDC of the 10 dUSDC bond.</p>
+<p>one visit is enough. your reveal is signed in this page and locked in time with <a href="https://drand.love">drand</a> until the bid deadline; after it we open it and send it for you, so your price shows without you coming back. we cannot read it before the deadline and cannot change it after. you can still come back and press reveal yourself.</p>
+<p class="small">testnet only. dUSDC is a test token with no value. nothing here can take or pay real money. a bid that is never revealed costs 5 dUSDC of the 10 dUSDC bond if someone marks it; we never mark community bids.</p>
 
 <section class="play" id="play">
   <h2 id="play-title">place your sealed bid</h2>
@@ -115,7 +116,7 @@ async function draw() {
     }
     rows.sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
     const closed = now >= r.reveal_until_ms;
-    body.innerHTML = rows.map((x, i) => '<tr class="' + (closed && i === 0 && x.price !== null ? "win" : "") + '"><td><a href="https://testnet.nearblocks.io/address/' + esc(x.who) + '">' + esc(x.who) + "</a></td><td>" + esc(ours[x.who] ?? "community, own key") + '</td><td class="p">' + (x.price === null ? '<span class="sealed">' + (closed ? "never revealed" : "sealed " + esc(x.hash.slice(0, 10)) + "..") + "</span>" : x.price.toFixed(2)) + "</td></tr>").join("") || '<tr><td colspan="3" class="sealed">no bids yet</td></tr>';
+    body.innerHTML = rows.map((x, i) => '<tr class="' + (closed && i === 0 && x.price !== null ? "win" : "") + '"><td><a href="https://testnet.nearblocks.io/address/' + esc(x.who) + '">' + esc(x.who) + "</a></td><td>" + esc(ours[x.who] ?? (/^founder-/.test(x.who) ? "the founder's bid" : "community, own key")) + '</td><td class="p">' + (x.price === null ? '<span class="sealed">' + (closed ? "never revealed" : "sealed " + esc(x.hash.slice(0, 10)) + "..") + "</span>" : x.price.toFixed(2)) + "</td></tr>").join("") || '<tr><td colspan="3" class="sealed">no bids yet</td></tr>';
     foot.textContent = closed ? (rows[0]?.price != null ? "lowest revealed price wins: " + rows[0].who + " at " + rows[0].price.toFixed(2) + "." : "no bid was revealed.") : "prices appear here as each bidder reveals. accounts marked ours are our own merchant agents; every other account holds its own key.";
   } catch (e) { st.innerHTML = '<span class="dot off"></span>could not read the round: ' + esc(e.message); }
 }
@@ -196,7 +197,25 @@ $("bid").onclick = async () => {
     st.round = r.id; st.price = $("price").value.trim(); st.schedule = schedule; st.salt = st.round_salt?.[r.id] ?? ((instr ? ih : "0".repeat(32)) + tx.randomHex(16));
     st.round_salt = { ...(st.round_salt ?? {}), [r.id]: st.salt };
     store.set(st);
-    st.txs.commit = await sent("sealed bid: only a hash goes on chain", me(cfg.bazaar, [tx.call("commit_bid", { round_id: r.id, commitment: await tx.bidCommitment(st.account, schedule, st.salt) }, 20n * 10n ** 21n, 30n)]));
+    // One visit: the reveal is signed now (a NEP-366 delegate from this account's own key) and
+    // time-locked to the commit deadline with drand (tlock, quicknet). The ciphertext rides in the
+    // commit's own arguments, on chain; nobody, us included, can open it before the deadline.
+    // After it, our relayer decrypts and submits the reveal and pays the gas; it cannot change
+    // the price or the salt, both signed here. The manual reveal button still works.
+    let sealed_reveal = null;
+    try {
+      const sr = step("your reveal, signed now and time-locked until the bid deadline");
+      const tl = await import("./vendor/tlock.min.js");
+      const w = await tx.delegateWindow(st.account, st.pub, r.reveal_until_ms);
+      const signedReveal = await tx.signDelegate({ sender_id: st.account, seedHex: st.seed, pubHex: st.pub, receiver_id: cfg.bazaar, actions: [tx.call("reveal_bid", { round_id: r.id, schedule, salt: st.salt }, 20n * 10n ** 21n, 50n)], nonce: w.nonce, max_block_height: w.max_block_height });
+      const client = tl.mainnetClient();
+      const info = await client.chain().info();
+      sealed_reveal = await tl.timelockEncrypt(tl.roundAt(r.commit_until_ms + 5000, info), tl.Buffer.from(JSON.stringify(signedReveal)), client);
+      st.auto_reveal = true; store.set(st);
+      sr.ok();
+    } catch (e) { st.auto_reveal = false; store.set(st); }
+    const commitArgs = { round_id: r.id, commitment: await tx.bidCommitment(st.account, schedule, st.salt), ...(sealed_reveal && { sealed_reveal }) };
+    st.txs.commit = await sent("sealed bid: only a hash goes on chain" + (sealed_reveal ? ", with your time-locked reveal" : ""), me(cfg.bazaar, [tx.call("commit_bid", commitArgs, 20n * 10n ** 21n, 50n)]));
     store.set(st);
   } catch (e) { $("note").hidden = false; $("note").textContent = e.message; }
   btn.disabled = false; await paint(); draw();
