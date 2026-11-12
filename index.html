@@ -99,7 +99,7 @@
 <ol class="steps3">
   <li><b>01</b><span>see your cost</span></li>
   <li><b>02</b><span>seal a price</span></li>
-  <li><b>03</b><span>lowest wins, keep a margin</span></li>
+  <li><b>03</b><span>lowest wins. score = your margin</span></li>
 </ol>
 <a class="cta" href="#play">place my bid</a>
 </div>
@@ -138,7 +138,7 @@
 
 <section class="board"><h3>the board</h3>
 <div class="status" id="status"><span class="dot off"></span>reading the round over public RPC</div>
-<table id="bids"><thead><tr><th>merchant account</th><th>who</th><th class="p">price</th><th class="p">cost</th><th class="p">margin</th></tr></thead><tbody></tbody></table>
+<table id="bids"><thead><tr><th>merchant account</th><th>who</th><th class="p">price</th><th class="p">cost</th><th class="p">score</th></tr></thead><tbody></tbody></table>
 <p class="small" id="foot"></p>
 </section>
 
@@ -190,8 +190,13 @@ async function draw() {
     }
     rows.sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
     const closed = now >= r.reveal_until_ms;
-    body.innerHTML = rows.map((x, i) => '<tr class="' + (closed && i === 0 && x.price !== null ? "win" : "") + '"><td><a href="https://testnet.nearblocks.io/address/' + esc(x.who) + '">' + esc(x.who) + "</a></td><td>" + esc(ours[x.who] ?? (isFounder(x.who) ? "the founder's bid" : "community, own key")) + '</td><td class="p">' + (x.price === null ? '<span class="sealed">' + (closed ? "never revealed" : "sealed") + "</span>" : x.price.toFixed(2)) + '</td><td class="p">' + x.cost.toFixed(2) + '</td><td class="p">' + (x.price === null ? '<span class="sealed">?</span>' : '<span class="' + (x.price < x.cost ? "loss" : "gain") + '">' + (x.price - x.cost >= 0 ? "+" : "") + (x.price - x.cost).toFixed(2) + "</span>") + "</td></tr>").join("") || '<tr><td colspan="5" class="sealed">no bids yet</td></tr>';
-    foot.textContent = closed ? (rows[0]?.price != null ? "lowest revealed price wins: " + rows[0].who + " at " + rows[0].price.toFixed(2) + ", margin " + (rows[0].price - rows[0].cost).toFixed(2) + (rows[0].price < rows[0].cost ? " (a loss)." : ".") : "no bid was revealed.") : "prices appear here as each bidder reveals. accounts marked ours are our own merchant agents; every other account holds its own key.";
+    // The buyer goes to the lowest price; the score is the margin earned: the winner's price
+    // minus its cost (negative for a win below cost), everyone else 0. Known once the round closes.
+    const winner = closed && rows[0]?.price != null ? rows[0].who : null;
+    for (const x of rows) x.score = !closed || x.price === null ? null : x.who === winner ? x.price - x.cost : 0;
+    if (closed) rows.sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity) || (a.price ?? Infinity) - (b.price ?? Infinity));
+    body.innerHTML = rows.map((x, i) => '<tr class="' + (x.who === winner ? "win" : "") + '"><td><a href="https://testnet.nearblocks.io/address/' + esc(x.who) + '">' + esc(x.who) + "</a></td><td>" + esc(ours[x.who] ?? (isFounder(x.who) ? "the founder's bid" : "community, own key")) + '</td><td class="p">' + (x.price === null ? '<span class="sealed">' + (closed ? "never revealed" : "sealed") + "</span>" : x.price.toFixed(2)) + '</td><td class="p">' + x.cost.toFixed(2) + '</td><td class="p">' + (x.score === null ? '<span class="sealed">?</span>' : '<span class="' + (x.score < 0 ? "loss" : x.score > 0 ? "gain" : "") + '">' + (x.score > 0 ? "+" : "") + x.score.toFixed(2) + "</span>") + "</td></tr>").join("") || '<tr><td colspan="5" class="sealed">no bids yet</td></tr>';
+    foot.textContent = closed ? (winner ? "the buyer goes to " + winner + " at " + rows.find((x) => x.who === winner).price.toFixed(2) + "; its score is its margin, " + rows.find((x) => x.who === winner).score.toFixed(2) + (rows.find((x) => x.who === winner).score < 0 ? " (a loss). everyone else scores 0." : ". everyone else scores 0.") : "no bid was revealed.") : "prices appear here as each bidder reveals. accounts marked ours are our own merchant agents; every other account holds its own key.";
   } catch (e) { st.innerHTML = '<span class="dot off"></span>could not read the round: ' + esc(e.message); }
 }
 // ---- every bidder's cost: ours from the round config, everyone else's from the account,

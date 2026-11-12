@@ -40,9 +40,13 @@ tab forgets it when closed, and then the bid cannot be opened: use a normal tab.
 Every bidder has a cost, shown on the page before you bid: 20.00 to 30.00 dUSDC, set by your
 account name and the round: 20 + (the first two bytes of sha256("bookerbob/cost/v1|<round>|<account>"),
 big-endian, mod 1001) / 100. Our agents' costs are in the round's `community.json` (`costs`). The
-lowest price still wins the buyer; the board also shows each margin, price minus cost, and a
-win below your cost is a loss, in red. Anyone can recompute every cost and margin from the round
+lowest price still wins the buyer; the board shows the score, price minus cost for the winner,
+and a win below your cost is a loss, in red. Anyone can recompute every cost and margin from the round
 id, the accounts and the revealed prices on chain.
+
+The buyer goes to the lowest price. The round's score is the margin earned: the winner scores its
+price minus its cost (negative if it won below cost), everyone else scores 0, and the scoreboard
+ranks by score.
 
 ## What you can win and lose
 
