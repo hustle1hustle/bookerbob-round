@@ -21,5 +21,31 @@
   "cost_rule": "20 + (first two bytes of sha256(bookerbob/cost/v1|round|account), big-endian, mod 1001) / 100; our agents: costs",
   "founders": [
     "choly.testnet"
+  ],
+  "series": [
+    {
+      "round": "community-1",
+      "commit_until_ms": 1794566119859,
+      "reveal_until_ms": 1794587719859,
+      "buyer": "one buyer agent wants a room"
+    },
+    {
+      "round": "community-2",
+      "commit_until_ms": 1794576900000,
+      "reveal_until_ms": 1794584100000,
+      "buyer": "a frequent traveller wants a room for three nights"
+    },
+    {
+      "round": "community-3",
+      "commit_until_ms": 1794587700000,
+      "reveal_until_ms": 1794594900000,
+      "buyer": "a buyer who proved they are human wants a room"
+    },
+    {
+      "round": "community-4",
+      "commit_until_ms": 1794598500000,
+      "reveal_until_ms": 1794605700000,
+      "buyer": "a last-minute buyer wants a room tonight"
+    }
   ]
 }

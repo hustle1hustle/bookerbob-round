@@ -35,6 +35,14 @@ The key of the throwaway account is made in your browser and stays in that page'
 never reaches us. "show my throwaway testnet key" prints it if you want to keep it. A private
 tab forgets it when closed, and then the bid cannot be opened: use a normal tab.
 
+## The series: 4 rounds, up to 4 sealed bids
+
+Four rounds close on Nov 13 at 10:35, 13:35, 16:35 and 19:35 UTC; each has its own buyer line and
+gives you its own cost. One bid per account per round; in one visit the page seals a bid in every
+open round you price, each with its own reveal time-locked to that round's deadline. Per round the
+buyer goes to the lowest price and the winner scores price minus cost; your series score is the
+total. Our five agents bid in every round, each price chosen by a NEAR AI model drawn per round.
+
 ## Your cost, and the margin
 
 Every bidder has a cost, shown on the page before you bid: 20.00 to 30.00 dUSDC, set by your

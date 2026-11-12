@@ -84,6 +84,17 @@
   .cost b { font: 800 28px var(--mono); letter-spacing: -.01em; color: var(--ink); text-transform: none; }
   .cost .small { text-transform: none; letter-spacing: 0; }
   .loss { color: var(--red); font-weight: 700; } .gain { color: var(--green); font-weight: 700; }
+  .rrow { margin-top: 16px; padding: 14px 14px 12px; background: var(--ground); border: 1px solid var(--line); }
+  .rrow.closed { opacity: .45; }
+  .rrow .rh { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font: 700 12px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+  .rrow .buyer { font-size: 15px; margin: 4px 0 8px; }
+  .rrow .rc { font: 13px var(--mono); color: var(--muted); }
+  .rrow .rc b { font: 800 20px var(--mono); color: var(--ink); }
+  .rrow input.p { font: 700 28px var(--mono); padding: 8px 12px; margin-top: 8px; }
+  .rrow input.i { font-size: 14px; padding: 9px 12px; margin-top: 6px; }
+  .rrow .done { font: 13px var(--mono); color: var(--green); margin-top: 8px; }
+  .tablewrap { overflow-x: auto; }
+  .lead { margin-top: 0; }
   [hidden] { display: none !important; }
   @media (max-width: 480px) { main { padding: 0 16px 60px; } .hero { margin: 0 -16px; padding: 0 16px 32px; } h1 { margin-top: 36px; } input.big { font-size: 36px; } td, th { padding: 9px 5px; font-size: 12px; } .play { padding: 22px 16px; } }
 </style>
@@ -92,36 +103,30 @@
 <main>
 <div class="hero">
 <nav><b>bookerbob</b><span class="tag">NEAR testnet · sealed-bid round</span></nav>
-<p class="kicker tag">you are a seller · you have a cost · one buyer wants a room</p>
+<p class="kicker tag">you are a seller · 4 rounds · a cost each round</p>
 <h1>beat <em id="hook-n">our agents</em> without selling at a loss.</h1>
+<p class="lead">4 rounds. up to 4 sealed bids. score = total margin.</p>
 <div class="tiles" id="tiles" aria-label="sealed bids in this round"></div>
 <div class="clock"><span class="tag" id="clock-label">bids close in</span><span id="clock">--:--:--</span></div>
 <ol class="steps3">
-  <li><b>01</b><span>see your cost</span></li>
-  <li><b>02</b><span>seal a price</span></li>
-  <li><b>03</b><span>lowest wins. score = your margin</span></li>
+  <li><b>01</b><span>see your costs</span></li>
+  <li><b>02</b><span>seal up to 4 prices</span></li>
+  <li><b>03</b><span>lowest wins each round. score = total margin</span></li>
 </ol>
-<a class="cta" href="#play">place my bid</a>
+<a class="cta" href="#play">place my bids</a>
 </div>
 
 <section class="play" id="play">
-  <h2 id="play-title">place your sealed bid</h2>
+  <h2 id="play-title">seal up to 4 bids</h2>
   <div id="form">
-    <div class="cost">your cost <b id="mycost">set an account name</b><span class="small">winning under it is a loss</span></div>
-    <label for="price">your price, dUSDC</label>
-    <input id="price" class="big" inputmode="decimal" autocomplete="off" placeholder="your price">
-    <input id="slider" type="range" min="1" max="100" step="0.25" value="50" class="untouched" aria-label="price slider">
-    <div class="row2">
-      <div><label for="name">account name</label>
-      <input id="name" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="32"></div>
-      <div><label for="instr">a line for your agent (optional)</label>
-      <input id="instr" autocomplete="off" maxlength="140" placeholder="undercut the cheapest, never below 25"></div>
-    </div>
-    <button id="bid" class="wide" disabled>seal my bid</button>
-    <p class="small" id="choice">choose a price to continue</p>
+    <label for="name">account name</label>
+    <input id="name" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="32">
+    <div id="rows"></div>
+    <button id="bid" class="wide" disabled>seal my bids</button>
+    <p class="small" id="choice">set a price in at least one open round</p>
   </div>
   <div class="mine" id="mine" hidden></div>
-  <button id="reveal" hidden>reveal my bid</button>
+  <button id="reveal" hidden>reveal my bids now</button>
   <ul id="steps"></ul>
   <p class="small warn" id="note" hidden></p>
   <p><button class="ghost" id="export" hidden>show my throwaway testnet key</button></p>
@@ -136,9 +141,9 @@
 </section>
 
 
-<section class="board"><h3>the board</h3>
-<div class="status" id="status"><span class="dot off"></span>reading the round over public RPC</div>
-<table id="bids"><thead><tr><th>merchant account</th><th>who</th><th class="p">price</th><th class="p">cost</th><th class="p">score</th></tr></thead><tbody></tbody></table>
+<section class="board"><h3>the scoreboard</h3>
+<div class="status" id="status"><span class="dot off"></span>reading the rounds over public RPC</div>
+<div class="tablewrap"><table id="bids"><thead><tr id="bidshead"><th>account</th><th>who</th><th class="p">total</th></tr></thead><tbody></tbody></table></div>
 <p class="small" id="foot"></p>
 </section>
 
@@ -153,143 +158,164 @@
 </main>
 <script type="module">
 import * as tx from "./round-tx.js";
-const RPCS = ["https://test.rpc.fastnear.com", "https://rpc.testnet.near.org"];
+// A series of sealed-bid rounds (community.json `series`). One bid per account per round; a
+// visitor seals up to one bid in every open round in one visit, each with its own reveal,
+// signed now and time-locked with drand to that round's bid deadline. Per round the buyer goes
+// to the lowest price and the winner scores price minus cost (everyone else 0); the series
+// score is the total. Every number on this page is read from chain or derived from it.
+const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-async function view(account, method, args) {
-  let err;
-  for (const rpc of RPCS) {
-    try {
-      const r = await (await fetch(rpc, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "query", params: { request_type: "call_function", finality: "final", account_id: account, method_name: method, args_base64: btoa(JSON.stringify(args)) } }) })).json();
-      if (r.result?.result) return JSON.parse(new TextDecoder().decode(new Uint8Array(r.result.result)));
-      err = new Error(r.result?.error ?? JSON.stringify(r.error ?? r).slice(0, 120));
-    } catch (e) { err = e; }
-  }
-  throw err;
-}
-const when = (ms) => new Date(ms).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + " your time";
-const left = (ms) => { const m = Math.max(0, Math.round((ms - Date.now()) / 60000)); return m >= 120 ? Math.round(m / 60) + " h" : m + " min"; };
-async function draw() {
-  const st = document.getElementById("status"), body = document.querySelector("#bids tbody"), foot = document.getElementById("foot");
-  try {
-    const cfg = await (await fetch("community.json", { cache: "no-store" })).json();
-    const round = new URLSearchParams(location.search).get("round") ?? cfg.round;
-    const ours = cfg.ours ?? {};
-    if (!round) { st.innerHTML = '<span class="dot off"></span>no round is open right now. the next one is announced with its deadlines.'; return; }
-    const r = await view(cfg.bazaar, "round", { round_id: round });
-    if (!r) throw new Error("round " + round + " is not on " + cfg.bazaar);
-    const now = Date.now();
-    const phase = now < r.commit_until_ms ? "bids open for " + left(r.commit_until_ms) + " more, until " + when(r.commit_until_ms)
-      : now < r.reveal_until_ms ? "bids closed. reveals open for " + left(r.reveal_until_ms) + " more, until " + when(r.reveal_until_ms) : "closed " + when(r.reveal_until_ms);
-    st.innerHTML = '<span class="dot' + (now < r.reveal_until_ms ? "" : " off") + '"></span>round ' + esc(round) + " on " + esc(cfg.bazaar) + ": " + phase + ". " + r.commits.length + " sealed bids, " + r.revealed.length + " revealed. read live from the chain.";
-    paintHero(r, ours, round);
-    const rows = [];
-    for (const [who, hash] of r.commits) {
-      let price = null;
-      if (r.revealed.includes(who)) price = Number((await view(cfg.bazaar, "round_bid", { round_id: round, merchant: who })).base_price) / 1e6;
-      rows.push({ who, hash, price, cost: await costOf(round, who) });
-    }
-    rows.sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
-    const closed = now >= r.reveal_until_ms;
-    // The buyer goes to the lowest price; the score is the margin earned: the winner's price
-    // minus its cost (negative for a win below cost), everyone else 0. Known once the round closes.
-    const winner = closed && rows[0]?.price != null ? rows[0].who : null;
-    for (const x of rows) x.score = !closed || x.price === null ? null : x.who === winner ? x.price - x.cost : 0;
-    if (closed) rows.sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity) || (a.price ?? Infinity) - (b.price ?? Infinity));
-    body.innerHTML = rows.map((x, i) => '<tr class="' + (x.who === winner ? "win" : "") + '"><td><a href="https://testnet.nearblocks.io/address/' + esc(x.who) + '">' + esc(x.who) + "</a></td><td>" + esc(ours[x.who] ?? (isFounder(x.who) ? "the founder's bid" : "community, own key")) + '</td><td class="p">' + (x.price === null ? '<span class="sealed">' + (closed ? "never revealed" : "sealed") + "</span>" : x.price.toFixed(2)) + '</td><td class="p">' + x.cost.toFixed(2) + '</td><td class="p">' + (x.score === null ? '<span class="sealed">?</span>' : '<span class="' + (x.score < 0 ? "loss" : x.score > 0 ? "gain" : "") + '">' + (x.score > 0 ? "+" : "") + x.score.toFixed(2) + "</span>") + "</td></tr>").join("") || '<tr><td colspan="5" class="sealed">no bids yet</td></tr>';
-    foot.textContent = closed ? (winner ? "the buyer goes to " + winner + " at " + rows.find((x) => x.who === winner).price.toFixed(2) + "; its score is its margin, " + rows.find((x) => x.who === winner).score.toFixed(2) + (rows.find((x) => x.who === winner).score < 0 ? " (a loss). everyone else scores 0." : ". everyone else scores 0.") : "no bid was revealed.") : "prices appear here as each bidder reveals. accounts marked ours are our own merchant agents; every other account holds its own key.";
-  } catch (e) { st.innerHTML = '<span class="dot off"></span>could not read the round: ' + esc(e.message); }
-}
-// ---- every bidder's cost: ours from the round config, everyone else's from the account,
-// 20.00 to 30.00 dUSDC: 20 + (first two bytes of sha256("bookerbob/cost/v1|" + round + "|" +
-// account), big-endian, mod 1001) / 100. scripts/community.mjs costOf is the same rule. ----
 const both = (ms) => new Date(ms).toISOString().slice(11, 16) + " UTC (" + new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + " your time)";
-const isFounder = (w) => /^founder-/.test(w) || (cfg?.founders ?? []).includes(w);
-async function costOf(roundId, account) {
-  const ours = cfg?.costs?.[account];
-  if (ours != null) return Number(ours);
-  const h = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode("bookerbob/cost/v1|" + roundId + "|" + account)));
-  return 20 + ((h[0] * 256 + h[1]) % 1001) / 100;
-}
-async function showMyCost() {
-  const n = $("name").value.trim().toLowerCase(); const id = /^[a-z0-9][a-z0-9-]{3,30}[a-z0-9]$/.test(n) ? n + ".testnet" : null;
-  const st = store.get(); const acct = st?.account ?? id;
-  if (!acct || !round?.id) { $("mycost").textContent = "set an account name"; return; }
-  $("mycost").textContent = (await costOf(round.id, acct)).toFixed(2) + " dUSDC";
-}
-// ---- the first screen: a tile per sealed bid (ours dark, others light, yours blue, an open
-// slot dashed), the count of our agents in the hook, and a live countdown ----
-let clockTo = null, clockLabel = "bids close in";
-function paintHero(r, ours, roundId) {
-  const mine = (() => { try { return JSON.parse(localStorage.getItem("bookerbob-community-v1") || "null")?.account; } catch { return null; } })();
-  const nOurs = r.commits.filter(([w]) => ours[w]).length;
-  if (nOurs) $("hook-n").textContent = nOurs + " of our agents";
-  const t = r.commits.map(([w]) => w === mine ? '<div class="tile you"><i>&#9679;</i>you</div>' : ours[w] ? '<div class="tile"><i>&#9679;</i>ours</div>' : '<div class="tile them"><i>&#9679;</i>' + (isFounder(w) ? "founder" : "them") + "</div>");
-  const open = Date.now() < r.commit_until_ms;
-  if (open && !r.commits.some(([w]) => w === mine)) t.push('<div class="tile open"><i>?</i>you</div>');
-  $("tiles").innerHTML = t.join("");
-  clockTo = open ? r.commit_until_ms : Date.now() < r.reveal_until_ms ? r.reveal_until_ms : null;
-  clockLabel = open ? "bids close in" : clockTo ? "reveals close in" : "round closed";
-}
-setInterval(() => {
-  $("clock-label").textContent = clockLabel;
-  if (!clockTo) { $("clock").textContent = clockLabel === "round closed" ? "" : "--:--:--"; return; }
-  const s = Math.max(0, Math.floor((clockTo - Date.now()) / 1000));
-  $("clock").textContent = [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map((x) => String(x).padStart(2, "0")).join(":");
-}, 1000);
-// ---- bid and reveal from this page ----
+const utc = (ms) => new Date(ms).toISOString().slice(11, 16) + " UTC";
 const FAUCET = "https://helper.nearprotocol.com/account";
 const KEY = "bookerbob-community-v1";
-const $ = (id) => document.getElementById(id);
 const store = { get() { try { return JSON.parse(localStorage.getItem(KEY) ?? "null"); } catch { return null; } }, set(v) { try { localStorage.setItem(KEY, JSON.stringify(v)); return true; } catch { return false; } } };
 const link = (h) => '<a href="https://testnet.nearblocks.io/txns/' + esc(h) + '">' + esc(h.slice(0, 8)) + "..</a>";
 function step(text) { const li = document.createElement("li"); li.className = "run"; li.textContent = text; $("steps").appendChild(li); return { ok(h) { li.className = "ok"; if (h) li.innerHTML = esc(text) + "  " + link(h); }, bad(e) { li.className = "bad"; li.textContent = text + ": " + e; } }; }
 async function sent(text, p) { const s = step(text); const r = await p; if (!r.ok) { s.bad(r.error); throw new Error(text + " failed"); } s.ok(r.hash); return r.hash; }
-let cfg = null, round = null;
-async function roundNow() { cfg = await (await fetch("community.json", { cache: "no-store" })).json(); const id = new URLSearchParams(location.search).get("round") ?? cfg.round; round = id ? { id, ...(await tx.view(cfg.bazaar, "round", { round_id: id })) } : null; return round; }
 function words() { const a = ["quiet", "brisk", "amber", "lucky", "polar", "mellow", "rapid", "sly"], b = ["otter", "heron", "lynx", "finch", "marten", "tern", "ibex", "wren"]; const r = crypto.getRandomValues(new Uint8Array(3)); return a[r[0] % 8] + "-" + b[r[1] % 8] + "-" + (r[2] % 90 + 10); }
-async function paint() {
-  const st = store.get();
-  let r; try { r = await roundNow(); } catch { r = null; }
-  const mine = st && r && st.round === r.id ? st : null;
-  const now = Date.now();
-  $("export").hidden = !st;
-  if (!r) { $("form").hidden = true; $("play-title").textContent = "no round is open right now"; return; }
-  if (!mine) {
-    const open = now < r.commit_until_ms;
-    $("form").hidden = !open; $("play-title").textContent = open ? "place your sealed bid" : "bids are closed for this round";
-    if (!$("name").value) $("name").value = st?.account ? st.account.replace(/\.testnet$/, "") : words();
-    if (st?.account) $("name").disabled = true;
-    return;
-  }
-  $("form").hidden = true; $("mine").hidden = false;
-  const revealed = r.revealed.includes(mine.account);
-  const committed = r.commits.some(([w]) => w === mine.account);
-  $("play-title").textContent = revealed ? "your bid is revealed" : committed ? "your bid is sealed" : "finish your bid";
-  $("mine").innerHTML = "account " + esc(mine.account) + "<br>your price " + esc(mine.price) + (revealed ? ", public now" : ", known only to this browser") + (mine.instruction_hash ? "<br>your instruction's hash " + esc(mine.instruction_hash) + (revealed ? ", on chain in your reveal" : ", goes on chain with your reveal") : "") +
-    (revealed ? "" : committed ? (now < r.commit_until_ms ? (mine.auto_reveal !== false ? "<br>nothing else to do. your bid opens by itself after " + both(r.commit_until_ms) + ". coming back to press reveal is optional." : "<br>come back between " + both(r.commit_until_ms) + " and " + both(r.reveal_until_ms) + " and press reveal.") : now < r.reveal_until_ms ? "<br>bids are closed; your bid opens by itself. you can also press reveal until " + both(r.reveal_until_ms) + "." : "<br>reveals closed. this bid was never opened.") : "");
-  $("reveal").hidden = !(committed && !revealed && now >= r.commit_until_ms && now < r.reveal_until_ms);
-  if (!committed && now < r.commit_until_ms) { $("form").hidden = false; $("name").value = mine.account.replace(/\.testnet$/, ""); $("name").disabled = true; $("price").value = mine.price; choose(mine.price); }
-}
 const hexOf = (u8) => Array.from(u8, (x) => x.toString(16).padStart(2, "0")).join("");
-let chosen = false;
-const choose = (v) => { chosen = Number(v) > 0; $("bid").disabled = !chosen; $("choice").textContent = chosen ? "your price: " + Number(v).toFixed(2) + " dUSDC" : "choose a price to continue"; };
-$("slider").oninput = () => { $("slider").classList.remove("untouched"); $("price").value = Number($("slider").value).toFixed(2); choose($("price").value); };
-$("price").oninput = () => { const v = Number($("price").value); if (v >= 1 && v <= 100) $("slider").value = v; $("slider").classList.remove("untouched"); choose(v); };
+
+let cfg = null, rounds = [];
+const isFounder = (w) => /^founder-/.test(w) || (cfg?.founders ?? []).includes(w);
+const ours = (w) => Boolean(cfg?.ours?.[w]);
+// Cost per account and round, 20.00 to 30.00: 20 + (first two bytes of sha256("bookerbob/cost/v1|"
+// + round + "|" + account), big-endian, mod 1001) / 100; ours from cfg.costs. Same rule as
+// scripts/community.mjs costOf.
+async function costOf(roundId, account) {
+  if (cfg?.costs?.[account] != null) return Number(cfg.costs[account]);
+  const h = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode("bookerbob/cost/v1|" + roundId + "|" + account)));
+  return 20 + ((h[0] * 256 + h[1]) % 1001) / 100;
+}
+// Old single-round storage becomes the series shape: st.bids[round] = { price, schedule, salt, ... }.
+function migrate(st) {
+  if (st && !st.bids) { st.bids = {}; if (st.round) st.bids[st.round] = { price: st.price, schedule: st.schedule, salt: st.salt, instruction_hash: st.instruction_hash ?? null, auto_reveal: st.auto_reveal, commit: st.txs?.commit ?? null }; }
+  return st;
+}
+async function load() {
+  cfg = await (await fetch("community.json", { cache: "no-store" })).json();
+  const list = cfg.series?.length ? cfg.series : cfg.round ? [{ round: cfg.round, buyer: "one buyer agent wants a room" }] : [];
+  rounds = [];
+  for (const [i, s] of list.entries()) {
+    const r = await tx.view(cfg.bazaar, "round", { round_id: s.round }).catch(() => null);
+    if (r) rounds.push({ i, id: s.round, buyer: s.buyer ?? "", ...r });
+  }
+  return rounds;
+}
+const openNow = (r) => Date.now() < r.commit_until_ms - 15000;
+
+// ---- the first screen: tiles for the next round to close, the hook count, the countdown ----
+let clockTo = null, clockLabel = "next round closes in";
+function paintHero() {
+  const st = store.get();
+  const next = rounds.find((r) => Date.now() < r.commit_until_ms) ?? rounds.find((r) => Date.now() < r.reveal_until_ms) ?? rounds[rounds.length - 1];
+  if (!next) { $("tiles").innerHTML = ""; clockTo = null; clockLabel = "no round is open"; return; }
+  const nOurs = next.commits.filter(([w]) => ours(w)).length;
+  if (nOurs) $("hook-n").textContent = nOurs + " of our agents";
+  const t = next.commits.map(([w]) => w === st?.account ? '<div class="tile you"><i>&#9679;</i>you</div>' : ours(w) ? '<div class="tile"><i>&#9679;</i>ours</div>' : '<div class="tile them"><i>&#9679;</i>' + (isFounder(w) ? "founder" : "them") + "</div>");
+  if (openNow(next) && !next.commits.some(([w]) => w === st?.account)) t.push('<div class="tile open"><i>?</i>you</div>');
+  $("tiles").innerHTML = t.join("");
+  const open = Date.now() < next.commit_until_ms;
+  clockTo = open ? next.commit_until_ms : Date.now() < next.reveal_until_ms ? next.reveal_until_ms : null;
+  clockLabel = open ? "round " + (next.i + 1) + " closes in" : clockTo ? "round " + (next.i + 1) + " reveals close in" : "the series is over";
+}
+setInterval(() => {
+  $("clock-label").textContent = clockLabel;
+  if (!clockTo) { $("clock").textContent = ""; return; }
+  const s = Math.max(0, Math.floor((clockTo - Date.now()) / 1000));
+  $("clock").textContent = [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map((x) => String(x).padStart(2, "0")).join(":");
+}, 1000);
+
+// ---- the form: one row per round ----
+async function paintForm() {
+  const st = migrate(store.get());
+  if (!$("name").value) $("name").value = st?.account ? st.account.replace(/\.testnet$/, "") : words();
+  const acct = st?.account ?? (/^[a-z0-9][a-z0-9-]{3,30}[a-z0-9]$/.test($("name").value.trim()) ? $("name").value.trim() + ".testnet" : null);
+  if (st?.account) $("name").disabled = true;
+  const keep = {};
+  for (const el of document.querySelectorAll("#rows input")) keep[el.id] = el.value;
+  const html = [];
+  for (const r of rounds) {
+    const mine = st?.bids?.[r.id];
+    const committed = st && r.commits.some(([w]) => w === st.account);
+    const cost = acct ? (await costOf(r.id, acct)).toFixed(2) : "?";
+    const open = openNow(r) && !committed;
+    html.push('<div class="rrow' + (open ? "" : " closed") + '"><div class="rh"><span>round ' + (r.i + 1) + "</span><span>" + (Date.now() < r.commit_until_ms ? "closes " + utc(r.commit_until_ms) : "closed") + "</span></div>" +
+      '<div class="buyer">' + esc(r.buyer) + "</div>" +
+      '<div class="rc">your cost <b>' + cost + "</b> dUSDC</div>" +
+      (committed ? '<div class="done">sealed' + (mine?.price ? " at " + esc(mine.price) : "") + (r.revealed.includes(st.account) ? ", revealed" : mine?.auto_reveal !== false ? ", opens by itself after " + esc(utc(r.commit_until_ms)) : "") + "</div>"
+        : open ? '<input class="p" id="p-' + esc(r.id) + '" inputmode="decimal" autocomplete="off" placeholder="your price"><input class="i" id="i-' + esc(r.id) + '" autocomplete="off" maxlength="140" placeholder="a line for your agent (optional)">' : "") + "</div>");
+  }
+  $("rows").innerHTML = html.join("") || '<p class="small">no round is open right now.</p>';
+  for (const [k, v] of Object.entries(keep)) if ($(k)) $(k).value = v;
+  for (const el of document.querySelectorAll("#rows input.p")) el.oninput = choose;
+  choose();
+  const anyOpen = rounds.some((r) => openNow(r) && !(st && r.commits.some(([w]) => w === st.account)));
+  $("form").hidden = !anyOpen && !rounds.length;
+  $("play-title").textContent = anyOpen ? "seal up to " + rounds.filter((r) => openNow(r)).length + " bids" : rounds.length ? "bids are closed" : "no round is open right now";
+  $("export").hidden = !st;
+  const due = rounds.filter((r) => st && r.commits.some(([w]) => w === st.account) && !r.revealed.includes(st.account) && Date.now() >= r.commit_until_ms && Date.now() < r.reveal_until_ms);
+  $("reveal").hidden = !due.length;
+  const sealedOpen = rounds.filter((r) => st && r.commits.some(([w]) => w === st.account) && Date.now() < r.commit_until_ms);
+  $("mine").hidden = !st?.account;
+  if (st?.account) $("mine").innerHTML = "account " + esc(st.account) + (sealedOpen.length ? "<br>nothing else to do. each bid opens by itself after its round closes. coming back to press reveal is optional." : "");
+}
+const priced = () => [...document.querySelectorAll("#rows input.p")].filter((el) => Number(el.value) > 0);
+function choose() { const n = priced().length; $("bid").disabled = !n; $("choice").textContent = n ? "sealing " + n + " bid" + (n > 1 ? "s" : "") : "set a price in at least one open round"; }
+
+// ---- the scoreboard: one row per account, one column per round, total margin ----
+async function draw() {
+  try {
+    await load();
+    paintHero();
+    await paintForm();
+    const now = Date.now();
+    $("bidshead").innerHTML = "<th>account</th><th>who</th>" + rounds.map((r) => '<th class="p">r' + (r.i + 1) + "</th>").join("") + '<th class="p">total</th>';
+    const accts = new Map();
+    const statusParts = [];
+    for (const r of rounds) {
+      const closed = now >= r.reveal_until_ms;
+      const prices = {};
+      for (const w of r.revealed) prices[w] = Number((await tx.view(cfg.bazaar, "round_bid", { round_id: r.id, merchant: w })).base_price) / 1e6;
+      const order = Object.entries(prices).sort((a, b) => a[1] - b[1]);
+      const winner = closed && order.length ? order[0][0] : null;
+      statusParts.push("r" + (r.i + 1) + ": " + r.commits.length + " sealed, " + r.revealed.length + " revealed, " + (now < r.commit_until_ms ? "bids close " + utc(r.commit_until_ms) : closed ? "closed" + (winner ? ", buyer to " + winner.split(".")[0] + " at " + prices[winner].toFixed(2) : "") : "reveals close " + utc(r.reveal_until_ms)));
+      for (const [w] of r.commits) {
+        const a = accts.get(w) ?? { who: w, cells: {}, total: 0, any: false };
+        const cost = await costOf(r.id, w);
+        let cell;
+        if (closed) {
+          const sc = w === winner ? prices[w] - cost : prices[w] != null ? 0 : null;
+          if (sc != null) { a.total += sc; a.any = true; }
+          cell = sc == null ? '<span class="sealed">never opened</span>' : '<span class="' + (sc < 0 ? "loss" : sc > 0 ? "gain" : "") + '">' + (sc > 0 ? "+" : "") + sc.toFixed(2) + "</span>";
+        } else cell = prices[w] != null ? '<span class="sealed">' + prices[w].toFixed(2) + "</span>" : '<span class="sealed">sealed</span>';
+        a.cells[r.id] = cell;
+        accts.set(w, a);
+      }
+    }
+    const list = [...accts.values()].sort((x, y) => y.total - x.total);
+    $("bids").querySelector("tbody").innerHTML = list.map((a) => "<tr><td>" + '<a href="https://testnet.nearblocks.io/address/' + esc(a.who) + '">' + esc(a.who) + "</a></td><td>" + (ours(a.who) ? "ours" : isFounder(a.who) ? "the founder's bid" : "community, own key") + "</td>" + rounds.map((r) => '<td class="p">' + (a.cells[r.id] ?? "") + "</td>").join("") + '<td class="p">' + (a.any ? '<b class="' + (a.total < 0 ? "loss" : a.total > 0 ? "gain" : "") + '">' + (a.total > 0 ? "+" : "") + a.total.toFixed(2) + "</b>" : '<span class="sealed">?</span>') + "</td></tr>").join("") || '<tr><td colspan="7" class="sealed">no bids yet</td></tr>';
+    $("status").innerHTML = '<span class="dot' + (rounds.some((r) => now < r.reveal_until_ms) ? "" : " off") + '"></span>' + statusParts.map(esc).join("<br>") + "<br>read live from the chain.";
+    $("foot").textContent = "per round the buyer goes to the lowest price; the winner scores price minus its cost, everyone else 0. total = the sum. ours are our merchant agents; every other account holds its own key.";
+  } catch (e) { $("status").innerHTML = '<span class="dot off"></span>could not read the rounds: ' + esc(e.message); }
+}
+
+// ---- seal: one account, up to one bid per open round, each with its own time-locked reveal ----
 $("bid").onclick = async () => {
   const btn = $("bid"); btn.disabled = true; $("steps").innerHTML = ""; $("note").hidden = true;
   try {
-    const r = await roundNow();
-    if (!r || Date.now() >= r.commit_until_ms) throw new Error("bids are closed");
+    await load();
     const name = $("name").value.trim().toLowerCase();
     if (!/^[a-z0-9][a-z0-9-]{3,30}[a-z0-9]$/.test(name)) throw new Error("name: 5 to 32 of a-z 0-9 -, like quiet-otter-7");
-    if (!chosen) throw new Error("choose your price first");
-    const schedule = tx.flatSchedule($("price").value.trim());
-    let st = store.get();
+    let st = migrate(store.get());
+    const picks = rounds.filter((r) => openNow(r) && !(st && r.commits.some(([w]) => w === st.account)) && Number($("p-" + r.id)?.value) > 0);
+    if (!picks.length) throw new Error("set a price in at least one open round");
+    for (const r of picks) tx.flatSchedule($("p-" + r.id).value.trim());
     if (!st) {
       const id = name + ".testnet";
       if (await tx.accountExists(id)) throw new Error(id + " is taken on testnet, pick another name");
       const seed = tx.randomHex();
-      st = { account: id, seed, pub: await tx.publicKeyHex(seed), txs: {} };
+      st = { account: id, seed, pub: await tx.publicKeyHex(seed), txs: {}, bids: {} };
       if (!store.set(st)) throw new Error("this browser blocks page storage (private mode?). open the page in a normal tab");
       const s = step("a fresh testnet account " + id + " from the public faucet");
       const f = await fetch(FAUCET, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ newAccountId: id, newAccountPublicKey: tx.nearPublicKey(st.pub) }) });
@@ -304,50 +330,52 @@ $("bid").onclick = async () => {
     if (!m0?.approved && BigInt(await tx.view(dusdc, "ft_balance_of", { account_id: st.account })) < 10000000n) st.txs.mint = await sent("mint 100 dUSDC (a test token, no value)", me(dusdc, [tx.call("mint", {}, 0n, 30n)]));
     if (!m0) st.txs.register = await sent("register as a merchant, category open", me(cfg.bazaar, [tx.call("register_merchant", { schedule: tx.flatSchedule(10000), category: "open", payout: null }, 20n * 10n ** 21n, 30n)]));
     if (!m0?.approved) st.txs.bond = await sent("bond 10 dUSDC: approved by the bond, nobody lets you in", me(dusdc, [tx.call("ft_transfer_call", { receiver_id: cfg.bazaar, amount: "10000000", msg: "bond" }, 1n, 100n)]));
-    // The salt's first 16 bytes are sha256(your instruction), its last 16 random. It goes on chain
-    // with your reveal, so the instruction you gave your agent is fixed with the bid; only you can
-    // show what it said.
-    const instr = $("instr").value.trim();
-    const ih = hexOf(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(instr)))).slice(0, 32);
-    st.instruction_hash = instr ? ih : null;
-    st.round = r.id; st.price = $("price").value.trim(); st.schedule = schedule; st.salt = st.round_salt?.[r.id] ?? ((instr ? ih : "0".repeat(32)) + tx.randomHex(16));
-    st.round_salt = { ...(st.round_salt ?? {}), [r.id]: st.salt };
     store.set(st);
-    // One visit: the reveal is signed now (a NEP-366 delegate from this account's own key) and
-    // time-locked to the commit deadline with drand (tlock, quicknet). The ciphertext rides in the
-    // commit's own arguments, on chain; nobody, us included, can open it before the deadline.
-    // After it, our relayer decrypts and submits the reveal and pays the gas; it cannot change
-    // the price or the salt, both signed here. The manual reveal button still works.
-    let sealed_reveal = null;
-    try {
-      const sr = step("your reveal, signed now and time-locked until the bid deadline");
-      const tl = await import("./vendor/tlock.min.js");
-      const w = await tx.delegateWindow(st.account, st.pub, r.reveal_until_ms);
-      const signedReveal = await tx.signDelegate({ sender_id: st.account, seedHex: st.seed, pubHex: st.pub, receiver_id: cfg.bazaar, actions: [tx.call("reveal_bid", { round_id: r.id, schedule, salt: st.salt }, 20n * 10n ** 21n, 50n)], nonce: w.nonce, max_block_height: w.max_block_height });
-      const client = tl.mainnetClient();
-      const info = await client.chain().info();
-      sealed_reveal = await tl.timelockEncrypt(tl.roundAt(r.commit_until_ms + 5000, info), tl.Buffer.from(JSON.stringify(signedReveal)), client);
-      st.auto_reveal = true; store.set(st);
-      sr.ok();
-    } catch (e) { st.auto_reveal = false; store.set(st); }
-    const commitArgs = { round_id: r.id, commitment: await tx.bidCommitment(st.account, schedule, st.salt), ...(sealed_reveal && { sealed_reveal }) };
-    st.txs.commit = await sent("sealed bid: only a hash goes on chain" + (sealed_reveal ? ", with your time-locked reveal" : ""), me(cfg.bazaar, [tx.call("commit_bid", commitArgs, 20n * 10n ** 21n, 50n)]));
-    store.set(st);
+    const tl = await import("./vendor/tlock.min.js").catch(() => null);
+    const client = tl?.mainnetClient();
+    const info = client ? await client.chain().info().catch(() => null) : null;
+    for (const r of picks) {
+      const price = $("p-" + r.id).value.trim();
+      const schedule = tx.flatSchedule(price);
+      // The salt's first 16 bytes are sha256(your line for the agent), its last 16 random; it goes
+      // on chain with the reveal, so the line is fixed with the bid and only you can show it.
+      const instr = ($("i-" + r.id)?.value ?? "").trim();
+      const ih = hexOf(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(instr)))).slice(0, 32);
+      const b = st.bids[r.id] ?? {};
+      b.price = price; b.schedule = schedule; b.instruction_hash = instr ? ih : null;
+      b.salt = b.salt ?? ((instr ? ih : "0".repeat(32)) + tx.randomHex(16));
+      st.bids[r.id] = b; store.set(st);
+      // The reveal, signed now and time-locked to this round's bid deadline. Nonces step by 1000
+      // per round in deadline order, so the reveals run in order whatever else this key signs.
+      let sealed_reveal = null;
+      try {
+        if (!info) throw new Error("no drand");
+        const w = await tx.delegateWindow(st.account, st.pub, r.reveal_until_ms);
+        const signedReveal = await tx.signDelegate({ sender_id: st.account, seedHex: st.seed, pubHex: st.pub, receiver_id: cfg.bazaar, actions: [tx.call("reveal_bid", { round_id: r.id, schedule, salt: b.salt }, 20n * 10n ** 21n, 50n)], nonce: w.nonce + BigInt(1000 * (r.i + 1)), max_block_height: w.max_block_height });
+        sealed_reveal = await tl.timelockEncrypt(tl.roundAt(r.commit_until_ms + 5000, info), tl.Buffer.from(JSON.stringify(signedReveal)), client);
+        b.auto_reveal = true;
+      } catch { b.auto_reveal = false; }
+      const commitArgs = { round_id: r.id, commitment: await tx.bidCommitment(st.account, schedule, b.salt), ...(sealed_reveal && { sealed_reveal }) };
+      b.commit = await sent("round " + (r.i + 1) + ": sealed bid" + (sealed_reveal ? ", reveal time-locked" : ""), me(cfg.bazaar, [tx.call("commit_bid", commitArgs, 20n * 10n ** 21n, 50n)]));
+      store.set(st);
+    }
   } catch (e) { $("note").hidden = false; $("note").textContent = e.message; }
-  btn.disabled = false; await paint(); draw();
+  btn.disabled = false; draw();
 };
 $("reveal").onclick = async () => {
   const btn = $("reveal"); btn.disabled = true; $("steps").innerHTML = ""; $("note").hidden = true;
   try {
-    const st = store.get(); const r = await roundNow();
-    st.txs.reveal = await sent("reveal: the contract checks your price against your hash", tx.send({ signer_id: st.account, seedHex: st.seed, pubHex: st.pub, receiver_id: cfg.bazaar, actions: [tx.call("reveal_bid", { round_id: r.id, schedule: st.schedule, salt: st.salt }, 20n * 10n ** 21n, 50n)] }));
-    store.set(st);
+    const st = migrate(store.get()); await load();
+    for (const r of rounds.filter((r) => r.commits.some(([w]) => w === st.account) && !r.revealed.includes(st.account) && Date.now() >= r.commit_until_ms && Date.now() < r.reveal_until_ms)) {
+      const b = st.bids[r.id]; if (!b) continue;
+      b.reveal = await sent("round " + (r.i + 1) + ": reveal", tx.send({ signer_id: st.account, seedHex: st.seed, pubHex: st.pub, receiver_id: cfg.bazaar, actions: [tx.call("reveal_bid", { round_id: r.id, schedule: b.schedule, salt: b.salt }, 20n * 10n ** 21n, 50n)] }));
+      store.set(st);
+    }
   } catch (e) { $("note").hidden = false; $("note").textContent = e.message; }
-  btn.disabled = false; await paint(); draw();
+  btn.disabled = false; draw();
 };
 $("export").onclick = () => { const st = store.get(); const box = $("keybox"); box.hidden = !box.hidden; box.textContent = "a throwaway NEAR testnet key. it holds test tokens only.\n" + JSON.stringify({ account_id: st.account, public_key: tx.nearPublicKey(st.pub), private_key: tx.nearSecretKey(st.seed, st.pub) }, null, 2); };
-paint(); setInterval(paint, 30000);
-$("name").addEventListener("input", showMyCost); setTimeout(showMyCost, 1500); setInterval(showMyCost, 4000);
+$("name").addEventListener("input", () => paintForm());
 draw(); setInterval(draw, 30000);
 </script>
 </body>
