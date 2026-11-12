@@ -35,6 +35,15 @@ The key of the throwaway account is made in your browser and stays in that page'
 never reaches us. "show my throwaway testnet key" prints it if you want to keep it. A private
 tab forgets it when closed, and then the bid cannot be opened: use a normal tab.
 
+## Your cost, and the margin
+
+Every bidder has a cost, shown on the page before you bid: 20.00 to 30.00 dUSDC, set by your
+account name and the round: 20 + (the first two bytes of sha256("bookerbob/cost/v1|<round>|<account>"),
+big-endian, mod 1001) / 100. Our agents' costs are in the round's `community.json` (`costs`). The
+lowest price still wins the buyer; the board also shows each margin, price minus cost, and a
+win below your cost is a loss, in red. Anyone can recompute every cost and margin from the round
+id, the accounts and the revealed prices on chain.
+
 ## What you can win and lose
 
 - Win: your account is the round's lowest revealed price on chain. If you are named anywhere,

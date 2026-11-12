@@ -80,6 +80,10 @@
   section.tldr .tag { color: var(--accent-text); display: block; margin-bottom: 8px; }
   section.tldr p { margin: 0 0 6px; font-size: 18px; line-height: 1.4; }
   @media (max-width: 480px) { .kicker { margin-top: 22px; } h1 { font-size: 44px; margin-bottom: 18px; } .tile { width: 48px; height: 56px; font-size: 8px; letter-spacing: .04em; } #clock { font-size: 28px; } .steps3 span { font-size: 14px; } }
+  .cost { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin: 14px 0 0; font: 600 11px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .cost b { font: 800 28px var(--mono); letter-spacing: -.01em; color: var(--ink); text-transform: none; }
+  .cost .small { text-transform: none; letter-spacing: 0; }
+  .loss { color: var(--red); font-weight: 700; } .gain { color: var(--green); font-weight: 700; }
   [hidden] { display: none !important; }
   @media (max-width: 480px) { main { padding: 0 16px 60px; } .hero { margin: 0 -16px; padding: 0 16px 32px; } h1 { margin-top: 36px; } input.big { font-size: 36px; } td, th { padding: 9px 5px; font-size: 12px; } .play { padding: 22px 16px; } }
 </style>
@@ -88,14 +92,14 @@
 <main>
 <div class="hero">
 <nav><b>bookerbob</b><span class="tag">NEAR testnet · sealed-bid round</span></nav>
-<p class="kicker tag">you are a seller · one buyer agent wants a room</p>
-<h1>beat <em id="hook-n">our agents</em> to the buyer.</h1>
+<p class="kicker tag">you are a seller · you have a cost · one buyer wants a room</p>
+<h1>beat <em id="hook-n">our agents</em> without selling at a loss.</h1>
 <div class="tiles" id="tiles" aria-label="sealed bids in this round"></div>
 <div class="clock"><span class="tag" id="clock-label">bids close in</span><span id="clock">--:--:--</span></div>
 <ol class="steps3">
-  <li><b>01</b><span>pick a price</span></li>
-  <li><b>02</b><span>sealed on chain</span></li>
-  <li><b>03</b><span>lowest wins</span></li>
+  <li><b>01</b><span>see your cost</span></li>
+  <li><b>02</b><span>seal a price</span></li>
+  <li><b>03</b><span>lowest wins, keep a margin</span></li>
 </ol>
 <a class="cta" href="#play">place my bid</a>
 </div>
@@ -103,6 +107,7 @@
 <section class="play" id="play">
   <h2 id="play-title">place your sealed bid</h2>
   <div id="form">
+    <div class="cost">your cost <b id="mycost">set an account name</b><span class="small">winning under it is a loss</span></div>
     <label for="price">your price, dUSDC</label>
     <input id="price" class="big" inputmode="decimal" autocomplete="off" placeholder="your price">
     <input id="slider" type="range" min="1" max="100" step="0.25" value="50" class="untouched" aria-label="price slider">
@@ -133,7 +138,7 @@
 
 <section class="board"><h3>the board</h3>
 <div class="status" id="status"><span class="dot off"></span>reading the round over public RPC</div>
-<table id="bids"><thead><tr><th>merchant account</th><th>who</th><th class="p">price</th></tr></thead><tbody></tbody></table>
+<table id="bids"><thead><tr><th>merchant account</th><th>who</th><th class="p">price</th><th class="p">cost</th><th class="p">margin</th></tr></thead><tbody></tbody></table>
 <p class="small" id="foot"></p>
 </section>
 
@@ -181,13 +186,30 @@ async function draw() {
     for (const [who, hash] of r.commits) {
       let price = null;
       if (r.revealed.includes(who)) price = Number((await view(cfg.bazaar, "round_bid", { round_id: round, merchant: who })).base_price) / 1e6;
-      rows.push({ who, hash, price });
+      rows.push({ who, hash, price, cost: await costOf(round, who) });
     }
     rows.sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
     const closed = now >= r.reveal_until_ms;
-    body.innerHTML = rows.map((x, i) => '<tr class="' + (closed && i === 0 && x.price !== null ? "win" : "") + '"><td><a href="https://testnet.nearblocks.io/address/' + esc(x.who) + '">' + esc(x.who) + "</a></td><td>" + esc(ours[x.who] ?? (/^founder-/.test(x.who) ? "the founder's bid" : "community, own key")) + '</td><td class="p">' + (x.price === null ? '<span class="sealed">' + (closed ? "never revealed" : "sealed " + esc(x.hash.slice(0, 10)) + "..") + "</span>" : x.price.toFixed(2)) + "</td></tr>").join("") || '<tr><td colspan="3" class="sealed">no bids yet</td></tr>';
-    foot.textContent = closed ? (rows[0]?.price != null ? "lowest revealed price wins: " + rows[0].who + " at " + rows[0].price.toFixed(2) + "." : "no bid was revealed.") : "prices appear here as each bidder reveals. accounts marked ours are our own merchant agents; every other account holds its own key.";
+    body.innerHTML = rows.map((x, i) => '<tr class="' + (closed && i === 0 && x.price !== null ? "win" : "") + '"><td><a href="https://testnet.nearblocks.io/address/' + esc(x.who) + '">' + esc(x.who) + "</a></td><td>" + esc(ours[x.who] ?? (isFounder(x.who) ? "the founder's bid" : "community, own key")) + '</td><td class="p">' + (x.price === null ? '<span class="sealed">' + (closed ? "never revealed" : "sealed") + "</span>" : x.price.toFixed(2)) + '</td><td class="p">' + x.cost.toFixed(2) + '</td><td class="p">' + (x.price === null ? '<span class="sealed">?</span>' : '<span class="' + (x.price < x.cost ? "loss" : "gain") + '">' + (x.price - x.cost >= 0 ? "+" : "") + (x.price - x.cost).toFixed(2) + "</span>") + "</td></tr>").join("") || '<tr><td colspan="5" class="sealed">no bids yet</td></tr>';
+    foot.textContent = closed ? (rows[0]?.price != null ? "lowest revealed price wins: " + rows[0].who + " at " + rows[0].price.toFixed(2) + ", margin " + (rows[0].price - rows[0].cost).toFixed(2) + (rows[0].price < rows[0].cost ? " (a loss)." : ".") : "no bid was revealed.") : "prices appear here as each bidder reveals. accounts marked ours are our own merchant agents; every other account holds its own key.";
   } catch (e) { st.innerHTML = '<span class="dot off"></span>could not read the round: ' + esc(e.message); }
+}
+// ---- every bidder's cost: ours from the round config, everyone else's from the account,
+// 20.00 to 30.00 dUSDC: 20 + (first two bytes of sha256("bookerbob/cost/v1|" + round + "|" +
+// account), big-endian, mod 1001) / 100. scripts/community.mjs costOf is the same rule. ----
+const both = (ms) => new Date(ms).toISOString().slice(11, 16) + " UTC (" + new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + " your time)";
+const isFounder = (w) => /^founder-/.test(w) || (cfg?.founders ?? []).includes(w);
+async function costOf(roundId, account) {
+  const ours = cfg?.costs?.[account];
+  if (ours != null) return Number(ours);
+  const h = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode("bookerbob/cost/v1|" + roundId + "|" + account)));
+  return 20 + ((h[0] * 256 + h[1]) % 1001) / 100;
+}
+async function showMyCost() {
+  const n = $("name").value.trim().toLowerCase(); const id = /^[a-z0-9][a-z0-9-]{3,30}[a-z0-9]$/.test(n) ? n + ".testnet" : null;
+  const st = store.get(); const acct = st?.account ?? id;
+  if (!acct || !round?.id) { $("mycost").textContent = "set an account name"; return; }
+  $("mycost").textContent = (await costOf(round.id, acct)).toFixed(2) + " dUSDC";
 }
 // ---- the first screen: a tile per sealed bid (ours dark, others light, yours blue, an open
 // slot dashed), the count of our agents in the hook, and a live countdown ----
@@ -196,7 +218,7 @@ function paintHero(r, ours, roundId) {
   const mine = (() => { try { return JSON.parse(localStorage.getItem("bookerbob-community-v1") || "null")?.account; } catch { return null; } })();
   const nOurs = r.commits.filter(([w]) => ours[w]).length;
   if (nOurs) $("hook-n").textContent = nOurs + " of our agents";
-  const t = r.commits.map(([w]) => w === mine ? '<div class="tile you"><i>&#9679;</i>you</div>' : ours[w] ? '<div class="tile"><i>&#9679;</i>ours</div>' : '<div class="tile them"><i>&#9679;</i>' + (/^founder-/.test(w) ? "founder" : "them") + "</div>");
+  const t = r.commits.map(([w]) => w === mine ? '<div class="tile you"><i>&#9679;</i>you</div>' : ours[w] ? '<div class="tile"><i>&#9679;</i>ours</div>' : '<div class="tile them"><i>&#9679;</i>' + (isFounder(w) ? "founder" : "them") + "</div>");
   const open = Date.now() < r.commit_until_ms;
   if (open && !r.commits.some(([w]) => w === mine)) t.push('<div class="tile open"><i>?</i>you</div>');
   $("tiles").innerHTML = t.join("");
@@ -239,7 +261,7 @@ async function paint() {
   const committed = r.commits.some(([w]) => w === mine.account);
   $("play-title").textContent = revealed ? "your bid is revealed" : committed ? "your bid is sealed" : "finish your bid";
   $("mine").innerHTML = "account " + esc(mine.account) + "<br>your price " + esc(mine.price) + (revealed ? ", public now" : ", known only to this browser") + (mine.instruction_hash ? "<br>your instruction's hash " + esc(mine.instruction_hash) + (revealed ? ", on chain in your reveal" : ", goes on chain with your reveal") : "") +
-    (revealed ? "" : committed ? (now < r.commit_until_ms ? "<br>come back to this page between " + when(r.commit_until_ms) + " and " + when(r.reveal_until_ms) + " and press reveal." : now < r.reveal_until_ms ? "<br>reveals are open until " + when(r.reveal_until_ms) + "." : "<br>reveals closed. this bid was never opened: the bond can lose 1 dUSDC.") : "");
+    (revealed ? "" : committed ? (now < r.commit_until_ms ? (mine.auto_reveal !== false ? "<br>nothing else to do. your bid opens by itself after " + both(r.commit_until_ms) + ". coming back to press reveal is optional." : "<br>come back between " + both(r.commit_until_ms) + " and " + both(r.reveal_until_ms) + " and press reveal.") : now < r.reveal_until_ms ? "<br>bids are closed; your bid opens by itself. you can also press reveal until " + both(r.reveal_until_ms) + "." : "<br>reveals closed. this bid was never opened.") : "");
   $("reveal").hidden = !(committed && !revealed && now >= r.commit_until_ms && now < r.reveal_until_ms);
   if (!committed && now < r.commit_until_ms) { $("form").hidden = false; $("name").value = mine.account.replace(/\.testnet$/, ""); $("name").disabled = true; $("price").value = mine.price; choose(mine.price); }
 }
@@ -320,6 +342,7 @@ $("reveal").onclick = async () => {
 };
 $("export").onclick = () => { const st = store.get(); const box = $("keybox"); box.hidden = !box.hidden; box.textContent = "a throwaway NEAR testnet key. it holds test tokens only.\n" + JSON.stringify({ account_id: st.account, public_key: tx.nearPublicKey(st.pub), private_key: tx.nearSecretKey(st.seed, st.pub) }, null, 2); };
 paint(); setInterval(paint, 30000);
+$("name").addEventListener("input", showMyCost); setTimeout(showMyCost, 1500); setInterval(showMyCost, 4000);
 draw(); setInterval(draw, 30000);
 </script>
 </body>

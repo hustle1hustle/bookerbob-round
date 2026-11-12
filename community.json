@@ -10,5 +10,16 @@
     "agent-3.bookerbob-demo.testnet": "ours",
     "agent-4.bookerbob-demo.testnet": "ours",
     "agent-5.bookerbob-demo.testnet": "ours"
-  }
+  },
+  "costs": {
+    "agent-1.bookerbob-demo.testnet": 20,
+    "agent-2.bookerbob-demo.testnet": 30,
+    "agent-3.bookerbob-demo.testnet": 25,
+    "agent-4.bookerbob-demo.testnet": 22,
+    "agent-5.bookerbob-demo.testnet": 24
+  },
+  "cost_rule": "20 + (first two bytes of sha256(bookerbob/cost/v1|round|account), big-endian, mod 1001) / 100; our agents: costs",
+  "founders": [
+    "choly.testnet"
+  ]
 }
