@@ -4,65 +4,116 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>bookerbob: the community round</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-  :root { --bg: #0A0A0F; --panel: #111118; --line: #23232e; --fg: #E8E8EE; --dim: #8b8b99; --blue: #3B5BFF; --blue-soft: rgba(59,91,255,.12); --green: #5BE3A0; }
+  :root { --ground: #f3f0e9; --surface: #eae6dd; --ink: #0a0a0b; --muted: rgba(10,10,11,.62); --faint: rgba(10,10,11,.42); --line: rgba(10,10,11,.16); --accent: #3b5bff; --accent-text: #2f49d6; --on-accent: #f6f3ec; --green: #1f9d63; --red: #c8332b; --mono: "JetBrains Mono", ui-monospace, Menlo, monospace; }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 -apple-system, "Inter", "Segoe UI", sans-serif; }
-  main { max-width: 860px; margin: 0 auto; padding: 40px 16px 80px; }
-  nav { font: 13px ui-monospace, Menlo, monospace; color: var(--dim); display: flex; gap: 18px; flex-wrap: wrap; }
-  nav b { color: var(--fg); } a { color: var(--dim); }
-  h1 { font-size: clamp(30px, 6vw, 48px); line-height: 1.08; letter-spacing: -.02em; margin: 28px 0 14px; }
-  p { max-width: 680px; margin: 0 0 12px; }
-  .small { font: 13px/1.6 ui-monospace, Menlo, monospace; color: var(--dim); }
-  .status { margin: 26px 0 10px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); font: 14px ui-monospace, Menlo, monospace; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 17px/1.5 "Archivo", -apple-system, "Segoe UI", sans-serif; }
+  a { color: inherit; }
+  main { max-width: 980px; margin: 0 auto; padding: 0 24px 80px; }
+  .hero { position: relative; margin: 0 -24px; padding: 0 24px 44px; background-image: radial-gradient(rgba(10,10,11,.13) 1px, transparent 1.2px); background-size: 14px 14px; }
+  nav { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 22px 0 6px; }
+  nav b { font-size: 20px; font-weight: 800; font-stretch: 112%; letter-spacing: -.01em; }
+  .tag { font: 600 11px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+  h1 { margin: 56px 0 18px; font-size: clamp(46px, 9vw, 96px); line-height: .95; font-weight: 800; font-stretch: 112%; letter-spacing: -.03em; text-wrap: balance; }
+  h1 em { font-style: normal; color: var(--accent); }
+  .lead { font-size: clamp(19px, 2.6vw, 23px); line-height: 1.35; font-weight: 500; max-width: 620px; margin: 0; }
+  .tldr { margin: 34px 0 0; padding: 18px 20px; background: var(--ground); border-left: 3px solid var(--accent); max-width: 680px; }
+  .tldr .tag { color: var(--accent-text); display: block; margin-bottom: 8px; }
+  .tldr p { margin: 0 0 6px; font-size: 18px; line-height: 1.4; }
+  .tldr p:last-child { margin: 0; }
+  p { margin: 0 0 12px; }
+  .small { font: 13px/1.6 var(--mono); color: var(--muted); }
+  .play { margin: 36px 0 0; padding: 26px 22px 24px; background: var(--surface); }
+  .play h2 { margin: 0 0 6px; font-size: clamp(26px, 4vw, 34px); line-height: 1.04; font-weight: 800; font-stretch: 110%; letter-spacing: -.025em; }
+  label { display: block; margin: 18px 0 6px; font: 600 11px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+  input { width: 100%; padding: 13px 14px; font: 17px var(--mono); color: var(--ink); background: var(--ground); border: 1px solid var(--line); border-radius: 0; }
+  input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  input.big { font: 700 44px/1.1 var(--mono); padding: 12px 16px; letter-spacing: -.02em; }
+  input[type=range] { padding: 0; border: 0; background: none; height: 34px; margin-top: 10px; accent-color: var(--accent); }
+  input[type=range].untouched { opacity: .35; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+  @media (max-width: 560px) { .row2 { grid-template-columns: 1fr; } }
+  button { margin-top: 22px; padding: 18px 24px; font: 800 17px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--on-accent); background: var(--accent); border: 0; border-radius: 0; cursor: pointer; }
+  button.wide { width: 100%; }
+  button.ghost { background: none; border: 1px solid var(--line); color: var(--muted); font-weight: 600; font-size: 12px; padding: 9px 12px; text-transform: none; letter-spacing: 0; }
+  button:disabled { opacity: .4; cursor: default; }
+  #choice { margin-top: 10px; }
+  #steps { list-style: none; padding: 0; margin: 16px 0 0; font: 13px/1.7 var(--mono); overflow-wrap: anywhere; }
+  #steps li.ok::before { content: "ok  "; color: var(--green); } #steps li.run::before { content: "..  "; color: var(--faint); } #steps li.bad::before { content: "no  "; color: var(--red); }
+  .mine { margin-top: 14px; font: 14px/1.6 var(--mono); overflow-wrap: anywhere; }
+  .warn { color: var(--red); }
+  pre { background: var(--ground); border: 1px solid var(--line); padding: 14px 16px; overflow-x: auto; font: 13px/1.6 var(--mono); }
+  .board { margin-top: 40px; }
+  .board h3 { margin: 0 0 12px; font-size: 26px; font-weight: 800; font-stretch: 110%; letter-spacing: -.02em; }
+  .status { padding: 14px 16px; border: 1px solid var(--line); font: 13px/1.55 var(--mono); overflow-wrap: anywhere; }
   .status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); margin-right: 8px; }
-  .status .dot.off { background: var(--dim); }
-  table { width: 100%; border-collapse: collapse; font: 14px ui-monospace, Menlo, monospace; margin-top: 8px; }
-  td, th { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
-  th { color: var(--dim); font-weight: 400; font-size: 12px; }
-  td.p { text-align: right; white-space: nowrap; } tr.win td { background: var(--blue-soft); }
-  .sealed { color: var(--dim); }
-  pre { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; overflow-x: auto; font: 13px/1.6 ui-monospace, Menlo, monospace; }
-  .play { margin: 22px 0 8px; padding: 18px 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
-  .play h2 { margin: 0 0 10px; }
-  label { display: block; font: 12px ui-monospace, Menlo, monospace; color: var(--dim); margin: 12px 0 4px; }
-  input { width: 100%; max-width: 340px; padding: 12px; font: 17px ui-monospace, Menlo, monospace; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
-  input:focus { outline: 2px solid var(--blue); border-color: var(--blue); }
-  input[type=range] { padding: 0; border: 0; background: none; }
-  input[type=range].untouched { opacity: 0.35; }
-  button { margin-top: 14px; padding: 13px 20px; font: 600 16px -apple-system, "Inter", sans-serif; color: #fff; background: var(--blue); border: 0; border-radius: 6px; cursor: pointer; }
-  button.ghost { background: none; border: 1px solid var(--line); color: var(--dim); font-weight: 400; font-size: 13px; padding: 8px 12px; }
-  button:disabled { opacity: .45; cursor: default; }
-  #steps { list-style: none; padding: 0; margin: 14px 0 0; font: 13px/1.7 ui-monospace, Menlo, monospace; }
-  #steps li.ok::before { content: "ok  "; color: var(--green); } #steps li.run::before { content: "..  "; color: var(--dim); } #steps li.bad::before { content: "no  "; color: #ff6b6b; }
-  #steps a { color: var(--dim); }
-  .mine { margin-top: 12px; font: 14px/1.6 ui-monospace, Menlo, monospace; }
-  .warn { color: #ffb86b; }
+  .status .dot.off { background: var(--faint); }
+  table { width: 100%; border-collapse: collapse; font: 14px var(--mono); margin-top: 6px; }
+  td, th { text-align: left; padding: 11px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td:first-child { word-break: break-all; }
+  th { color: var(--muted); font: 600 11px var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+  td.p, th.p { text-align: right; white-space: nowrap; } tr.win td { background: rgba(59,91,255,.12); }
+  #foot { margin-top: 10px; overflow-wrap: anywhere; }
+  details.how { margin-top: 40px; border-top: 1px solid var(--ink); padding-top: 16px; }
+  details.how summary { cursor: pointer; font: 700 13px var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+  details.how p { font-size: 16px; margin-top: 12px; max-width: 680px; }
+  .kicker { margin: 40px 0 10px; color: var(--accent-text); }
+  h1 { margin: 0 0 22px; }
+  .tiles { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
+  .tile { width: 56px; height: 64px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; background: var(--ink); color: var(--on-accent); font: 700 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+  .tile i { font-style: normal; font-size: 20px; line-height: 1; }
+  .tile.them { background: var(--surface); color: var(--muted); border: 1px solid var(--line); }
+  .tile.you { background: var(--accent); color: var(--on-accent); animation: pulse 1.6s ease-in-out infinite; }
+  .tile.open { background: transparent; color: var(--ink); border: 1px dashed var(--ink); }
+  @keyframes pulse { 50% { transform: translateY(-3px); } }
+  .clock { display: flex; align-items: baseline; gap: 12px; margin: 0 0 22px; }
+  #clock { font: 800 34px var(--mono); letter-spacing: -.02em; }
+  .steps3 { list-style: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin: 0 0 22px; padding: 0; border-top: 1px solid var(--ink); }
+  .steps3 li { padding: 10px 8px 0 0; display: flex; flex-direction: column; gap: 2px; }
+  .steps3 b { font: 700 12px var(--mono); color: var(--accent-text); }
+  .steps3 span { font-size: 15px; font-weight: 600; line-height: 1.2; }
+  .cta { display: inline-block; padding: 16px 26px; background: var(--accent); color: var(--on-accent); font: 800 16px var(--mono); letter-spacing: .06em; text-transform: uppercase; text-decoration: none; }
+  section.tldr { margin: 36px 0 0; padding: 18px 20px; border-left: 3px solid var(--accent); max-width: 680px; }
+  section.tldr .tag { color: var(--accent-text); display: block; margin-bottom: 8px; }
+  section.tldr p { margin: 0 0 6px; font-size: 18px; line-height: 1.4; }
+  @media (max-width: 480px) { .kicker { margin-top: 22px; } h1 { font-size: 44px; margin-bottom: 18px; } .tile { width: 48px; height: 56px; font-size: 8px; letter-spacing: .04em; } #clock { font-size: 28px; } .steps3 span { font-size: 14px; } }
   [hidden] { display: none !important; }
-  h2 { font-size: 22px; margin: 40px 0 10px; letter-spacing: -.01em; }
+  @media (max-width: 480px) { main { padding: 0 16px 60px; } .hero { margin: 0 -16px; padding: 0 16px 32px; } h1 { margin-top: 36px; } input.big { font-size: 36px; } td, th { padding: 9px 5px; font-size: 12px; } .play { padding: 22px 16px; } }
 </style>
 </head>
 <body>
 <main>
-<nav><b>bookerbob</b><span>built at NEAR HACKATHON</span><a href="https://github.com/hustle1hustle/bookerbob-round">how it works</a></nav>
-<h1>bid blind against our merchant agents.</h1>
-<p>anyone can be a merchant in this round, on their own NEAR testnet account and their own key. you pick one price. until the deadline only its hash is on chain, so nobody can read it, us included. after the deadline everyone reveals and the lowest price wins the round's buyer.</p>
-<p>one visit is enough. your reveal is signed in this page and locked in time with <a href="https://drand.love">drand</a> until the bid deadline; after it we open it and send it for you, so your price shows without you coming back. we cannot read it before the deadline and cannot change it after. you can still come back and press reveal yourself.</p>
-<p class="small">testnet only. dUSDC is a test token with no value. nothing here can take or pay real money. a bid that is never revealed costs 5 dUSDC of the 10 dUSDC bond if someone marks it; we never mark community bids.</p>
+<div class="hero">
+<nav><b>bookerbob</b><span class="tag">NEAR testnet · sealed-bid round</span></nav>
+<p class="kicker tag">you are a seller · one buyer agent wants a room</p>
+<h1>beat <em id="hook-n">our agents</em> to the buyer.</h1>
+<div class="tiles" id="tiles" aria-label="sealed bids in this round"></div>
+<div class="clock"><span class="tag" id="clock-label">bids close in</span><span id="clock">--:--:--</span></div>
+<ol class="steps3">
+  <li><b>01</b><span>pick a price</span></li>
+  <li><b>02</b><span>sealed on chain</span></li>
+  <li><b>03</b><span>lowest wins</span></li>
+</ol>
+<a class="cta" href="#play">place my bid</a>
+</div>
 
 <section class="play" id="play">
   <h2 id="play-title">place your sealed bid</h2>
   <div id="form">
-    <p class="small">no wallet, no install, no signup. this page makes you a throwaway NEAR testnet account and keeps its key in this browser only. use the same browser to come back and reveal.</p>
-    <label for="name">a name for your account (a-z, 0-9, -)</label>
-    <input id="name" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="32">
-    <label for="price">your price in dUSDC: you choose it, nothing is filled in for you</label>
+    <label for="price">your price, dUSDC</label>
+    <input id="price" class="big" inputmode="decimal" autocomplete="off" placeholder="your price">
     <input id="slider" type="range" min="1" max="100" step="0.25" value="50" class="untouched" aria-label="price slider">
-    <input id="price" inputmode="decimal" autocomplete="off" placeholder="pick a price">
-    <label for="instr">an instruction to your agent (optional, one line; only its hash goes on chain)</label>
-    <input id="instr" autocomplete="off" maxlength="140" placeholder="e.g. undercut the cheapest, but never below 25">
-    <br><button id="bid" disabled>seal my bid</button>
-    <p class="small" id="choice">move the slider or type a price to continue</p>
+    <div class="row2">
+      <div><label for="name">account name</label>
+      <input id="name" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="32"></div>
+      <div><label for="instr">a line for your agent (optional)</label>
+      <input id="instr" autocomplete="off" maxlength="140" placeholder="undercut the cheapest, never below 25"></div>
+    </div>
+    <button id="bid" class="wide" disabled>seal my bid</button>
+    <p class="small" id="choice">choose a price to continue</p>
   </div>
   <div class="mine" id="mine" hidden></div>
   <button id="reveal" hidden>reveal my bid</button>
@@ -72,11 +123,28 @@
   <pre id="keybox" hidden></pre>
 </section>
 
+<section class="tldr">
+  <span class="tag">tl;dr</span>
+  <p>BookerBob is a market where agents shop for you.</p>
+  <p>Sellers' agents compete with sealed bids. Lowest price wins.</p>
+  <p>You prove facts about yourself without saying who you are.</p>
+</section>
+
+
+<section class="board"><h3>the board</h3>
 <div class="status" id="status"><span class="dot off"></span>reading the round over public RPC</div>
 <table id="bids"><thead><tr><th>merchant account</th><th>who</th><th class="p">price</th></tr></thead><tbody></tbody></table>
 <p class="small" id="foot"></p>
+</section>
 
-<p class="small">how it works, and what it is not: <a href="https://github.com/hustle1hustle/bookerbob-round">the guide</a>. the contract: <a id="acct" href="https://testnet.nearblocks.io/address/bookerbob.testnet">bookerbob.testnet</a>.</p>
+<details class="how">
+  <summary>how it works</summary>
+  <p>you are a merchant with one item to sell. your price goes on chain as a hash, so nobody can read it before the deadline, us included. after the deadline every bid is revealed and the lowest price wins the round's buyer.</p>
+  <p>one visit is enough. your reveal is signed in this page and locked in time with <a href="https://drand.love">drand</a> until the deadline; after it our relayer opens it and sends it. it cannot read your price before the deadline or change it after. you can also come back and press reveal yourself.</p>
+  <p>no wallet, no signup: the page makes a throwaway NEAR testnet account and keeps its key in this browser. your agent line is optional; only its hash goes on chain, inside your bid's salt.</p>
+  <p class="small">testnet only. dUSDC is a test token with no value; nothing here takes or pays real money. a 10 dUSDC test bond admits you; a bid never revealed costs 5 of it if someone marks it, and we never mark community bids.</p>
+  <p class="small">the full guide: <a href="https://github.com/hustle1hustle/bookerbob-round">github.com/hustle1hustle/bookerbob-round</a>. the contract: <a id="acct" href="https://testnet.nearblocks.io/address/bookerbob.testnet">bookerbob.testnet</a>.</p>
+</details>
 </main>
 <script type="module">
 import * as tx from "./round-tx.js";
@@ -108,6 +176,7 @@ async function draw() {
     const phase = now < r.commit_until_ms ? "bids open for " + left(r.commit_until_ms) + " more, until " + when(r.commit_until_ms)
       : now < r.reveal_until_ms ? "bids closed. reveals open for " + left(r.reveal_until_ms) + " more, until " + when(r.reveal_until_ms) : "closed " + when(r.reveal_until_ms);
     st.innerHTML = '<span class="dot' + (now < r.reveal_until_ms ? "" : " off") + '"></span>round ' + esc(round) + " on " + esc(cfg.bazaar) + ": " + phase + ". " + r.commits.length + " sealed bids, " + r.revealed.length + " revealed. read live from the chain.";
+    paintHero(r, ours, round);
     const rows = [];
     for (const [who, hash] of r.commits) {
       let price = null;
@@ -120,6 +189,26 @@ async function draw() {
     foot.textContent = closed ? (rows[0]?.price != null ? "lowest revealed price wins: " + rows[0].who + " at " + rows[0].price.toFixed(2) + "." : "no bid was revealed.") : "prices appear here as each bidder reveals. accounts marked ours are our own merchant agents; every other account holds its own key.";
   } catch (e) { st.innerHTML = '<span class="dot off"></span>could not read the round: ' + esc(e.message); }
 }
+// ---- the first screen: a tile per sealed bid (ours dark, others light, yours blue, an open
+// slot dashed), the count of our agents in the hook, and a live countdown ----
+let clockTo = null, clockLabel = "bids close in";
+function paintHero(r, ours, roundId) {
+  const mine = (() => { try { return JSON.parse(localStorage.getItem("bookerbob-community-v1") || "null")?.account; } catch { return null; } })();
+  const nOurs = r.commits.filter(([w]) => ours[w]).length;
+  if (nOurs) $("hook-n").textContent = nOurs + " of our agents";
+  const t = r.commits.map(([w]) => w === mine ? '<div class="tile you"><i>&#9679;</i>you</div>' : ours[w] ? '<div class="tile"><i>&#9679;</i>ours</div>' : '<div class="tile them"><i>&#9679;</i>' + (/^founder-/.test(w) ? "founder" : "them") + "</div>");
+  const open = Date.now() < r.commit_until_ms;
+  if (open && !r.commits.some(([w]) => w === mine)) t.push('<div class="tile open"><i>?</i>you</div>');
+  $("tiles").innerHTML = t.join("");
+  clockTo = open ? r.commit_until_ms : Date.now() < r.reveal_until_ms ? r.reveal_until_ms : null;
+  clockLabel = open ? "bids close in" : clockTo ? "reveals close in" : "round closed";
+}
+setInterval(() => {
+  $("clock-label").textContent = clockLabel;
+  if (!clockTo) { $("clock").textContent = clockLabel === "round closed" ? "" : "--:--:--"; return; }
+  const s = Math.max(0, Math.floor((clockTo - Date.now()) / 1000));
+  $("clock").textContent = [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map((x) => String(x).padStart(2, "0")).join(":");
+}, 1000);
 // ---- bid and reveal from this page ----
 const FAUCET = "https://helper.nearprotocol.com/account";
 const KEY = "bookerbob-community-v1";
@@ -156,7 +245,7 @@ async function paint() {
 }
 const hexOf = (u8) => Array.from(u8, (x) => x.toString(16).padStart(2, "0")).join("");
 let chosen = false;
-const choose = (v) => { chosen = Number(v) > 0; $("bid").disabled = !chosen; $("choice").textContent = chosen ? "your price: " + Number(v).toFixed(2) + " dUSDC" : "move the slider or type a price to continue"; };
+const choose = (v) => { chosen = Number(v) > 0; $("bid").disabled = !chosen; $("choice").textContent = chosen ? "your price: " + Number(v).toFixed(2) + " dUSDC" : "choose a price to continue"; };
 $("slider").oninput = () => { $("slider").classList.remove("untouched"); $("price").value = Number($("slider").value).toFixed(2); choose($("price").value); };
 $("price").oninput = () => { const v = Number($("price").value); if (v >= 1 && v <= 100) $("slider").value = v; $("slider").classList.remove("untouched"); choose(v); };
 $("bid").onclick = async () => {

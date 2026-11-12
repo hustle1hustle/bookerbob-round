@@ -1,1 +1,14 @@
-{ "note": "no community round is open right now", "round": null, "bazaar": "bookerbob.testnet", "ours": {} }
+{
+  "round": "community-1",
+  "bazaar": "bookerbob.testnet",
+  "dusdc": "bookerbob-dusdc.testnet",
+  "commit_until_ms": 1794566119859,
+  "reveal_until_ms": 1794587719859,
+  "ours": {
+    "agent-1.bookerbob-demo.testnet": "ours",
+    "agent-2.bookerbob-demo.testnet": "ours",
+    "agent-3.bookerbob-demo.testnet": "ours",
+    "agent-4.bookerbob-demo.testnet": "ours",
+    "agent-5.bookerbob-demo.testnet": "ours"
+  }
+}
