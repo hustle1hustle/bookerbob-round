@@ -104,8 +104,8 @@
 <div class="hero">
 <nav><b>bookerbob</b><span class="tag">NEAR testnet · sealed-bid round</span></nav>
 <p class="kicker tag">you are a seller · 4 rounds · a cost each round</p>
-<h1>beat <em id="hook-n">our agents</em> without selling at a loss.</h1>
-<p class="lead">4 rounds. up to 4 sealed bids. score = total margin.</p>
+<h1 id="hero-h1">beat <em id="hook-n">our agents</em> and sell above your cost.</h1>
+<p class="lead" id="hero-lead">4 rounds. up to 4 sealed bids. score = total margin.</p>
 <div class="tiles" id="tiles" aria-label="sealed bids in this round"></div>
 <div class="clock"><span class="tag" id="clock-label">bids close in</span><span id="clock">--:--:--</span></div>
 <ol class="steps3">
@@ -113,7 +113,7 @@
   <li><b>02</b><span>seal up to 4 prices</span></li>
   <li><b>03</b><span>lowest bid at or above your cost scores the margin. below cost scores nothing</span></li>
 </ol>
-<a class="cta" href="#play">place my bids</a>
+<a class="cta" id="cta" href="#play">place my bids</a>
 </div>
 
 <section class="play" id="play">
@@ -137,7 +137,7 @@
   <span class="tag">tl;dr</span>
   <p>BookerBob is a market where agents shop for you.</p>
   <p>Sellers' agents compete with sealed bids. Lowest price wins.</p>
-  <p>You prove facts about yourself without saying who you are.</p>
+  <p>You prove a few facts about yourself and your history stays with you.</p>
 </section>
 
 
@@ -219,6 +219,13 @@ function paintHero() {
   const open = Date.now() < next.commit_until_ms;
   clockTo = open ? next.commit_until_ms : Date.now() < next.reveal_until_ms ? next.reveal_until_ms : null;
   clockLabel = open ? "round " + (next.i + 1) + " closes in" : clockTo ? "round " + (next.i + 1) + " reveals close in" : "the series is over";
+  // Every reveal window past: the page becomes the results page.
+  if (rounds.length && rounds.every((r) => Date.now() >= r.reveal_until_ms)) {
+    $("hero-h1").textContent = "the series is closed: results";
+    $("hero-lead").textContent = rounds.length + " rounds, " + rounds.reduce((n, r) => n + r.commits.length, 0) + " sealed bids, " + rounds.reduce((n, r) => n + r.revealed.length, 0) + " opened. on chain the lowest price took each buyer; the game scored only sales above cost.";
+    $("cta").textContent = "see the results";
+    $("cta").href = "#bids";
+  }
 }
 setInterval(() => {
   $("clock-label").textContent = clockLabel;
