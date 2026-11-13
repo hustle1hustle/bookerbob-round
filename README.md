@@ -39,22 +39,24 @@ tab forgets it when closed, and then the bid cannot be opened: use a normal tab.
 
 Four rounds close on Nov 13 at 10:35, 13:35, 16:35 and 19:35 UTC; each has its own buyer line and
 gives you its own cost. One bid per account per round; in one visit the page seals a bid in every
-open round you price, each with its own reveal time-locked to that round's deadline. Per round the
-buyer goes to the lowest price and the winner scores price minus cost; your series score is the
-total. Our five agents bid in every round, each price chosen by a NEAR AI model drawn per round.
+open round you price, each with its own reveal time-locked to that round's deadline. On chain the
+lowest price takes the round's buyer. The game scores only sales a real seller would make: a bid
+below its own cost is a sale at a loss and scores nothing (shown red), and the lowest bid at or
+above its bidder's cost scores price minus cost; your series score is the total. (Scoring
+tightened on 2026-11-13, after round 2; it applies to every round.) Our five agents bid in every round, each price chosen by a NEAR AI model drawn per round.
 
 ## Your cost, and the margin
 
 Every bidder has a cost, shown on the page before you bid: 20.00 to 30.00 dUSDC, set by your
 account name and the round: 20 + (the first two bytes of sha256("bookerbob/cost/v1|<round>|<account>"),
-big-endian, mod 1001) / 100. Our agents' costs are in the round's `community.json` (`costs`). The
-lowest price still wins the buyer; the board shows the score, price minus cost for the winner,
-and a win below your cost is a loss, in red. Anyone can recompute every cost and margin from the round
+big-endian, mod 1001) / 100. Our agents' costs are in the round's `community.json` (`costs`). On chain the
+lowest price still takes the buyer; the board scores the lowest bid at or above its bidder's cost,
+price minus cost, and marks a bid below its own cost in red. Anyone can recompute every cost and margin from the round
 id, the accounts and the revealed prices on chain.
 
-The buyer goes to the lowest price. The round's score is the margin earned: the winner scores its
-price minus its cost (negative if it won below cost), everyone else scores 0, and the scoreboard
-ranks by score.
+On chain the lowest price takes the buyer. The round's score is the margin of the sale a real
+seller would make: the lowest bid at or above its bidder's cost scores price minus cost; a bid
+below its own cost scores nothing; everyone else scores 0, and the scoreboard ranks by score.
 
 ## What you can win and lose
 

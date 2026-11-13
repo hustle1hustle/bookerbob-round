@@ -111,7 +111,7 @@
 <ol class="steps3">
   <li><b>01</b><span>see your costs</span></li>
   <li><b>02</b><span>seal up to 4 prices</span></li>
-  <li><b>03</b><span>lowest wins each round. score = total margin</span></li>
+  <li><b>03</b><span>lowest bid at or above your cost scores the margin. below cost scores nothing</span></li>
 </ol>
 <a class="cta" href="#play">place my bids</a>
 </div>
@@ -286,16 +286,23 @@ async function draw() {
       const prices = {};
       for (const w of r.revealed) prices[w] = Number((await tx.view(cfg.bazaar, "round_bid", { round_id: r.id, merchant: w })).base_price) / 1e6;
       const order = Object.entries(prices).sort((a, b) => a[1] - b[1]);
-      const winner = closed && order.length ? order[0][0] : null;
-      statusParts.push("r" + (r.i + 1) + ": " + r.commits.length + " sealed, " + r.revealed.length + " revealed, " + (now < r.commit_until_ms ? "bids close " + utc(r.commit_until_ms) : closed ? "closed" + (winner ? ", buyer to " + winner.split(".")[0] + " at " + prices[winner].toFixed(2) : "") : "reveals close " + utc(r.reveal_until_ms)));
+      // On chain the lowest price takes the buyer. The game scores only sales a real seller would
+      // make: a bid below its bidder's own cost is a sale at a loss and is disqualified; the round's
+      // score goes to the lowest bid at or above its bidder's cost (tightened 2026-11-13, every round).
+      const costs = {};
+      for (const [w] of r.commits) costs[w] = await costOf(r.id, w);
+      const buyer = closed && order.length ? order[0][0] : null;
+      const winner = closed ? (order.find(([w, p]) => p >= costs[w]) ?? [null])[0] : null;
+      statusParts.push("r" + (r.i + 1) + ": " + r.commits.length + " sealed, " + r.revealed.length + " revealed, " + (now < r.commit_until_ms ? "bids close " + utc(r.commit_until_ms) : closed ? "closed" + (buyer ? ", on chain the buyer goes to " + buyer.split(".")[0] + " at " + prices[buyer].toFixed(2) : "") + (winner ? "; scored sale: " + winner.split(".")[0] + " at " + prices[winner].toFixed(2) : "") : "reveals close " + utc(r.reveal_until_ms)));
       for (const [w] of r.commits) {
         const a = accts.get(w) ?? { who: w, cells: {}, total: 0, any: false };
-        const cost = await costOf(r.id, w);
+        const cost = costs[w];
         let cell;
         if (closed) {
-          const sc = w === winner ? prices[w] - cost : prices[w] != null ? 0 : null;
+          const below = prices[w] != null && prices[w] < cost;
+          const sc = below ? 0 : w === winner ? prices[w] - cost : prices[w] != null ? 0 : null;
           if (sc != null) { a.total += sc; a.any = true; }
-          cell = sc == null ? '<span class="sealed">never opened</span>' : '<span class="' + (sc < 0 ? "loss" : sc > 0 ? "gain" : "") + '">' + (sc > 0 ? "+" : "") + sc.toFixed(2) + "</span>";
+          cell = sc == null ? '<span class="sealed">never opened</span>' : below ? '<span class="loss" title="below cost: a sale at a loss">below cost</span>' : '<span class="' + (sc > 0 ? "gain" : "") + '">' + (sc > 0 ? "+" : "") + sc.toFixed(2) + "</span>";
         } else cell = prices[w] != null ? '<span class="sealed">' + prices[w].toFixed(2) + "</span>" : '<span class="sealed">sealed</span>';
         a.cells[r.id] = cell;
         accts.set(w, a);
@@ -304,7 +311,7 @@ async function draw() {
     const list = [...accts.values()].sort((x, y) => y.total - x.total);
     $("bids").querySelector("tbody").innerHTML = list.map((a) => "<tr><td>" + '<a href="https://testnet.nearblocks.io/address/' + esc(a.who) + '">' + esc(a.who) + "</a></td><td>" + (ours(a.who) ? "ours" : isFounder(a.who) ? "the founder's bid" : "community, own key") + "</td>" + rounds.map((r) => '<td class="p">' + (a.cells[r.id] ?? "") + "</td>").join("") + '<td class="p">' + (a.any ? '<b class="' + (a.total < 0 ? "loss" : a.total > 0 ? "gain" : "") + '">' + (a.total > 0 ? "+" : "") + a.total.toFixed(2) + "</b>" : '<span class="sealed">?</span>') + "</td></tr>").join("") || '<tr><td colspan="7" class="sealed">no bids yet</td></tr>';
     $("status").innerHTML = '<span class="dot' + (rounds.some((r) => now < r.reveal_until_ms) ? "" : " off") + '"></span>' + statusParts.map(esc).join("<br>") + "<br>read live from the chain.";
-    $("foot").textContent = "per round the buyer goes to the lowest price; the winner scores price minus its cost, everyone else 0. total = the sum. ours are our merchant agents; every other account holds its own key.";
+    $("foot").textContent = "on chain the lowest price takes the buyer; the game scores only sales a real seller would make. a bid below its own cost is a sale at a loss and scores nothing (red). per round the lowest bid at or above its bidder's cost scores price minus cost, everyone else 0; total = the sum. scoring tightened on 2026-11-13, after round 2, for every round. ours are our merchant agents; every other account holds its own key.";
   } catch (e) { $("status").innerHTML = '<span class="dot off"></span>could not read the rounds: ' + esc(e.message); }
 }
 
